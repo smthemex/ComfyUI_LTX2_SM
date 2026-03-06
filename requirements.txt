@@ -1,0 +1,7 @@
+diffusers
+accelerate
+transformers
+tokenizers
+tqdm
+gguf
+omegaconf
