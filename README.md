@@ -2,13 +2,10 @@
  [LTX-2 ](https://github.com/Lightricks/LTX-2)is the first DiT-based audio-video foundation model that contains all core capabilities of modern video generation in one modelsynchronized audio and video, high fidelity, multiple performance modes, production-ready outputs, it's a test node.
 
 # Tips
+* 2.3版还在测试，目前的代码只能跑2.0
 * If you wan to  runing it in very low  Vram... ,use Q2 clip and Q4 dit(or slplit you  workflows), if upscaler 512x768 to 1024x1536 need 8G Vram (always OOM at vae decoder, use tiles is OK )
 * Enable save clip emb and latents to save Ram and Vram too
-* Will coming soon
 
-
-
- #
  
 # Example
 * 2x upscaler
