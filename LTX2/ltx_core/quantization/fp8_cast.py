@@ -1,8 +1,8 @@
 import torch
 
-from ltx_core.loader.module_ops import ModuleOps
-from ltx_core.loader.sd_ops import KeyValueOperationResult, SDOps
-from ltx_core.model.transformer.model import LTXModel
+from ..loader.module_ops import ModuleOps
+from ..loader.sd_ops import KeyValueOperationResult, SDOps
+from ..model.transformer.model import LTXModel
 
 BLOCK_SIZE = 1024
 
