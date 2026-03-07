@@ -240,7 +240,7 @@ class LTXModel(torch.nn.Module):
             self.audio_inner_dim = self.audio_num_attention_heads * audio_attention_head_dim
             self._init_audio(
                 in_channels=audio_in_channels,
-                caption_channels=caption_channels,
+                out_channels=audio_out_channels,
                 norm_eps=norm_eps,
                 caption_projection=audio_caption_projection,
             )
