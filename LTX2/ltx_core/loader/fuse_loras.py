@@ -1,44 +1,46 @@
 import torch
-import triton
-import gc
-from .kernels import fused_add_round_kernel
+
 from .primitives import LoraStateDictWithStrength, StateDict
-
-BLOCK_SIZE = 1024
-
-
-def fused_add_round_launch(target_weight: torch.Tensor, original_weight: torch.Tensor, seed: int) -> torch.Tensor:
-    if original_weight.dtype == torch.float8_e4m3fn:
-        exponent_bits, mantissa_bits, exponent_bias = 4, 3, 7
-    elif original_weight.dtype == torch.float8_e5m2:
-        exponent_bits, mantissa_bits, exponent_bias = 5, 2, 15  # noqa: F841
-    else:
-        raise ValueError("Unsupported dtype")
-
-    if target_weight.dtype != torch.bfloat16:
-        raise ValueError("target_weight dtype must be bfloat16")
-
-    # Calculate grid and block sizes
-    n_elements = original_weight.numel()
-    grid = (triton.cdiv(n_elements, BLOCK_SIZE),)
-
-    # Launch kernel
-    fused_add_round_kernel[grid](
-        original_weight,
-        target_weight,
-        seed,
-        n_elements,
-        exponent_bias,
-        mantissa_bits,
-        BLOCK_SIZE,
-    )
-    return target_weight
+from ...quantization.fp8_cast import calculate_weight_float8
+from ...quantization.fp8_scaled_mm import quantize_weight_to_fp8_per_tensor
 
 
-def calculate_weight_float8_(target_weights: torch.Tensor, original_weights: torch.Tensor) -> torch.Tensor:
-    result = fused_add_round_launch(target_weights, original_weights, seed=0).to(target_weights.dtype)
-    target_weights.copy_(result, non_blocking=True)
-    return target_weights
+def apply_loras(
+    model_sd: StateDict,
+    lora_sd_and_strengths: list[LoraStateDictWithStrength],
+    dtype: torch.dtype | None = None,
+    destination_sd: StateDict | None = None,
+) -> StateDict:
+    sd = {}
+    if destination_sd is not None:
+        sd = destination_sd.sd
+    size = 0
+    device = torch.device("meta")
+    inner_dtypes = set()
+    for key, weight in model_sd.sd.items():
+        if weight is None:
+            continue
+        # Skip scale keys - they are handled together with their weight keys
+        if key.endswith(".weight_scale"):
+            continue
+        device = weight.device
+        target_dtype = dtype if dtype is not None else weight.dtype
+        deltas_dtype = target_dtype if target_dtype not in [torch.float8_e4m3fn, torch.float8_e5m2] else torch.bfloat16
+
+        scale_key = key.replace(".weight", ".weight_scale") if key.endswith(".weight") else None
+        is_scaled_fp8 = scale_key is not None and scale_key in model_sd.sd
+
+        deltas = _prepare_deltas(lora_sd_and_strengths, key, deltas_dtype, device)
+        fused = _fuse_deltas(deltas, weight, key, sd, target_dtype, device, is_scaled_fp8, scale_key, model_sd)
+
+        sd.update(fused)
+        for tensor in fused.values():
+            inner_dtypes.add(tensor.dtype)
+            size += tensor.nbytes
+
+    if destination_sd is not None:
+        return destination_sd
+    return StateDict(sd, device, size, inner_dtypes)
 
 
 def _prepare_deltas(
@@ -51,8 +53,11 @@ def _prepare_deltas(
     for lsd, coef in lora_sd_and_strengths:
         if key_a not in lsd.sd or key_b not in lsd.sd:
             continue
-        product = torch.matmul(lsd.sd[key_b] * coef, lsd.sd[key_a])
-        deltas.append(product.to(dtype=dtype, device=device))
+        a = lsd.sd[key_a].to(device=device)
+        b = lsd.sd[key_b].to(device=device)
+        product = torch.matmul(b * coef, a)
+        del a, b
+        deltas.append(product.to(dtype=dtype))
     if len(deltas) == 0:
         return None
     elif len(deltas) == 1:
@@ -60,68 +65,89 @@ def _prepare_deltas(
     return torch.sum(torch.stack(deltas, dim=0), dim=0)
 
 
-def apply_loras(
+def _fuse_deltas(
+    deltas: torch.Tensor | None,
+    weight: torch.Tensor,
+    key: str,
+    sd: dict[str, torch.Tensor],
+    target_dtype: torch.dtype,
+    device: torch.device,
+    is_scaled_fp8: bool,
+    scale_key: str | None,
     model_sd: StateDict,
-    lora_sd_and_strengths: list[LoraStateDictWithStrength],
-    dtype: torch.dtype,
-    destination_sd: StateDict | None = None,
-) -> StateDict:
-    sd = {}
-    if destination_sd is not None:
-        sd = destination_sd.sd
-    size = 0
-    device = torch.device("meta")
-    inner_dtypes = set()
-    for key, weight in model_sd.sd.items():
-        if weight is None:
-            continue
-        device = weight.device
-        target_dtype = dtype if dtype is not None else weight.dtype
-        deltas_dtype = target_dtype if target_dtype not in [torch.float8_e4m3fn, torch.float8_e5m2] else torch.bfloat16
-        deltas = _prepare_deltas(lora_sd_and_strengths, key, deltas_dtype, device)
-        if deltas is None:
-            if key in sd:
-                continue
-            deltas = weight.clone().to(dtype=target_dtype, device=device)
-        elif weight.dtype == torch.float8_e4m3fn:
-            if str(device).startswith("cuda"):
-                deltas = calculate_weight_float8_(deltas, weight)
-            else:
-                deltas.add_(weight.to(dtype=deltas.dtype, device=device))
-        elif weight.dtype == torch.bfloat16:
-            deltas.add_(weight)
+) -> dict[str, torch.Tensor]:
+    if deltas is None:
+        if key in sd:
+            return {}
+        fused = _copy_weight_without_lora(weight, key, target_dtype, device, is_scaled_fp8, scale_key, model_sd)
+    elif weight.dtype == torch.float8_e4m3fn:
+        if is_scaled_fp8:
+            fused = _fuse_delta_with_scaled_fp8(deltas, weight, key, scale_key, model_sd)
         else:
-            raise ValueError(f"Unsupported dtype: {weight.dtype}")
-        sd[key] = deltas.to(dtype=target_dtype)
-        inner_dtypes.add(target_dtype)
-        size += deltas.nbytes
-    if destination_sd is not None:
-        return destination_sd
-    return StateDict(sd, device, size, inner_dtypes)
+            fused = _fuse_delta_with_cast_fp8(deltas, weight, key, target_dtype, device)
+    elif weight.dtype == torch.bfloat16:
+        fused = _fuse_delta_with_bfloat16(deltas, weight, key, target_dtype)
+    else:
+        raise ValueError(f"Unsupported dtype: {weight.dtype}")
 
-def apply_loras_gguf(
-    model_sd,
-    lora_sd_and_strengths: list[LoraStateDictWithStrength],
-    dtype: torch.dtype,
-):
-    sd = {}
-    device = torch.device("meta")
-    for key, weight in model_sd.items():
-        if weight is None:
-            continue
-        device = weight.device
-        #target_dtype = dtype if dtype is not None else weight.dtype
-        #deltas_dtype = target_dtype if target_dtype not in [torch.float8_e4m3fn, torch.float8_e5m2] else torch.bfloat16
-        deltas_dtype =  torch.bfloat16
-        deltas = _prepare_deltas(lora_sd_and_strengths, key, deltas_dtype, device)
-        if deltas is None:
-            deltas = weight
-        elif weight.dtype == torch.bfloat16:
-            deltas.add_(weight)
-        else:
-            raise ValueError(f"Unsupported dtype: {weight.dtype}")
-        sd[key] = deltas
-        del weight,deltas
-    del model_sd
-    gc.collect()
-    return sd
+    return fused
+
+
+def _copy_weight_without_lora(
+    weight: torch.Tensor,
+    key: str,
+    target_dtype: torch.dtype,
+    device: torch.device,
+    is_scaled_fp8: bool,
+    scale_key: str | None,
+    model_sd: StateDict,
+) -> dict[str, torch.Tensor]:
+    """Copy original weight (and scale if applicable) when no LoRA affects this key."""
+    result = {key: weight.clone().to(dtype=target_dtype, device=device)}
+    if is_scaled_fp8:
+        result[scale_key] = model_sd.sd[scale_key].clone()
+    return result
+
+
+def _fuse_delta_with_scaled_fp8(
+    deltas: torch.Tensor,
+    weight: torch.Tensor,
+    key: str,
+    scale_key: str,
+    model_sd: StateDict,
+) -> dict[str, torch.Tensor]:
+    """Dequantize scaled FP8 weight, add LoRA delta, and re-quantize."""
+    weight_scale = model_sd.sd[scale_key]
+
+    original_weight = weight.t().to(torch.float32) * weight_scale
+
+    new_weight = original_weight + deltas.to(torch.float32)
+
+    new_fp8_weight, new_weight_scale = quantize_weight_to_fp8_per_tensor(new_weight)
+    return {key: new_fp8_weight, scale_key: new_weight_scale}
+
+
+def _fuse_delta_with_cast_fp8(
+    deltas: torch.Tensor,
+    weight: torch.Tensor,
+    key: str,
+    target_dtype: torch.dtype,
+    device: torch.device,
+) -> dict[str, torch.Tensor]:
+    """Fuse LoRA delta with cast-only FP8 weight (no scale factor)."""
+    if str(device).startswith("cuda"):
+        deltas = calculate_weight_float8(deltas, weight)
+    else:
+        deltas.add_(weight.to(dtype=deltas.dtype, device=device))
+    return {key: deltas.to(dtype=target_dtype)}
+
+
+def _fuse_delta_with_bfloat16(
+    deltas: torch.Tensor,
+    weight: torch.Tensor,
+    key: str,
+    target_dtype: torch.dtype,
+) -> dict[str, torch.Tensor]:
+    """Fuse LoRA delta with bfloat16 weight."""
+    deltas.add_(weight)
+    return {key: deltas.to(dtype=target_dtype)}
