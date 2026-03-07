@@ -1,7 +1,7 @@
 """Audio VAE model components."""
 
-from ..audio_vae.audio_vae import AudioDecoder, AudioEncoder, decode_audio
-from ..audio_vae.model_configurator import (
+from .audio_vae import AudioDecoder, AudioEncoder, decode_audio, encode_audio
+from .model_configurator import (
     AUDIO_VAE_DECODER_COMFY_KEYS_FILTER,
     AUDIO_VAE_ENCODER_COMFY_KEYS_FILTER,
     VOCODER_COMFY_KEYS_FILTER,
@@ -9,8 +9,8 @@ from ..audio_vae.model_configurator import (
     AudioEncoderConfigurator,
     VocoderConfigurator,
 )
-from ..audio_vae.ops import AudioProcessor
-from ..audio_vae.vocoder import Vocoder
+from .ops import AudioProcessor
+from .vocoder import Vocoder, VocoderWithBWE
 
 __all__ = [
     "AUDIO_VAE_DECODER_COMFY_KEYS_FILTER",
@@ -23,5 +23,7 @@ __all__ = [
     "AudioProcessor",
     "Vocoder",
     "VocoderConfigurator",
+    "VocoderWithBWE",
     "decode_audio",
+    "encode_audio",
 ]
