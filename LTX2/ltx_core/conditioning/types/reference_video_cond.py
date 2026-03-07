@@ -2,11 +2,11 @@
 
 import torch
 
-from ltx_core.components.patchifiers import get_pixel_coords
-from ltx_core.conditioning.item import ConditioningItem
-from ltx_core.conditioning.mask_utils import update_attention_mask
-from ltx_core.tools import VideoLatentTools
-from ltx_core.types import LatentState, VideoLatentShape
+from ...components.patchifiers import get_pixel_coords
+from ..item import ConditioningItem
+from ..mask_utils import update_attention_mask
+from ...tools import VideoLatentTools
+from ...types import LatentState, VideoLatentShape
 
 
 class VideoConditionByReferenceLatent(ConditioningItem):
