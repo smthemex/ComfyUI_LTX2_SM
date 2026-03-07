@@ -3,18 +3,18 @@ from transformers import Gemma3Config
 from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS
 from transformers.models.gemma3 import Gemma3ForConditionalGeneration
 
-from ltx_core.loader import KeyValueOperationResult
-from ltx_core.loader.module_ops import ModuleOps
-from ltx_core.loader.sd_ops import SDOps
-from ltx_core.model.model_protocol import ModelConfigurator
-from ltx_core.text_encoders.gemma.config import GEMMA3_CONFIG_FOR_LTX
-from ltx_core.text_encoders.gemma.embeddings_connector import (
+from ...loader import KeyValueOperationResult
+from ...loader.module_ops import ModuleOps
+from ...loader.sd_ops import SDOps
+from ...model.model_protocol import ModelConfigurator
+from ..config import GEMMA3_CONFIG_FOR_LTX
+from ..embeddings_connector import (
     AudioEmbeddings1DConnectorConfigurator,
     Embeddings1DConnectorConfigurator,
 )
-from ltx_core.text_encoders.gemma.embeddings_processor import EmbeddingsProcessor
-from ltx_core.text_encoders.gemma.encoders.base_encoder import GemmaTextEncoder
-from ltx_core.text_encoders.gemma.feature_extractor import (
+from ..embeddings_processor import EmbeddingsProcessor
+from .base_encoder import GemmaTextEncoder
+from ..feature_extractor import (
     FeatureExtractorV1,
     FeatureExtractorV2,
 )
