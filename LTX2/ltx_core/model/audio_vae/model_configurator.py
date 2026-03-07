@@ -1,6 +1,6 @@
 import torch
 
-from ...sd_ops import KeyValueOperationResult, SDOps
+from ...loader.sd_ops import KeyValueOperationResult, SDOps
 from ..audio_vae.attention import AttentionType
 from ..audio_vae.audio_vae import AudioDecoder, AudioEncoder
 from ..audio_vae.causality_axis import CausalityAxis

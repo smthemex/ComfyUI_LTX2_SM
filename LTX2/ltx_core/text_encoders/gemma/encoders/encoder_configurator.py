@@ -3,10 +3,10 @@ from transformers import Gemma3Config
 from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS
 from transformers.models.gemma3 import Gemma3ForConditionalGeneration
 
-from ...loader import KeyValueOperationResult
-from ...loader.module_ops import ModuleOps
-from ...loader.sd_ops import SDOps
-from ...model.model_protocol import ModelConfigurator
+from ....loader import KeyValueOperationResult
+from ....loader.module_ops import ModuleOps
+from ....loader.sd_ops import SDOps
+from ....model.model_protocol import ModelConfigurator
 from ..config import GEMMA3_CONFIG_FOR_LTX
 from ..embeddings_connector import (
     AudioEmbeddings1DConnectorConfigurator,

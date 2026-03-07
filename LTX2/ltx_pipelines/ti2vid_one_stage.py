@@ -11,21 +11,21 @@ from ..ltx_core.components.schedulers import LTX2Scheduler
 from ..ltx_core.loader import LoraPathStrengthAndSDOps
 from ..ltx_core.model.audio_vae import decode_audio as vae_decode_audio
 from ..ltx_core.model.video_vae import decode_video as vae_decode_video
-from ..ltx_core.text_encoders.gemma import encode_text
+from ..ltx_core.quantization import QuantizationPolicy
 from ..ltx_core.types import LatentState, VideoPixelShape
-from ..ltx_pipelines.utils import ModelLedger
-from ..ltx_pipelines.utils.args import default_1_stage_arg_parser
-from ..ltx_pipelines.utils.constants import AUDIO_SAMPLE_RATE
-from ..ltx_pipelines.utils.helpers import (
+from ..ltx_pipelines.utils import (
+    ModelLedger,
     assert_resolution,
     cleanup_memory,
+    combined_image_conditionings,
     denoise_audio_video,
+    encode_prompts,
     euler_denoising_loop,
-    generate_enhanced_prompt,
     get_device,
-    guider_denoising_func,
-    image_conditionings_by_replacing_latent,
-)
+    multi_modal_guider_factory_denoising_func,)
+from ..ltx_pipelines.utils.args import ImageConditioningInput, default_1_stage_arg_parser, detect_checkpoint_path
+from ..ltx_pipelines.utils.constants import detect_params
+
 from ..ltx_pipelines.utils.media_io import encode_video
 from ..ltx_pipelines.utils.types import PipelineComponents
 
@@ -139,7 +139,7 @@ class TI2VidOneStagePipeline:
                 video_state=video_state,
                 audio_state=audio_state,
                 stepper=stepper,
-                denoise_fn=guider_denoising_func(
+                denoise_fn=multi_modal_guider_factory_denoising_func(
                     cfg_guider,
                     v_context_p,
                     v_context_n,

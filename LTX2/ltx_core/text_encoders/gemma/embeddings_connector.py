@@ -1,89 +1,261 @@
-from typing import NamedTuple
-
 import torch
-from torch import nn
 
-from .embeddings_connector import Embeddings1DConnector
-
-
-class EmbeddingsProcessorOutput(NamedTuple):
-    video_encoding: torch.Tensor
-    audio_encoding: torch.Tensor | None
-    attention_mask: torch.Tensor
-
-
-def convert_to_additive_mask(attention_mask: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
-    """Convert binary attention mask to additive form for transformer masking."""
-    return (attention_mask.to(torch.int64) - 1).to(dtype).reshape(
-        (attention_mask.shape[0], 1, -1, attention_mask.shape[-1])
-    ) * torch.finfo(dtype).max
+from ...model.model_protocol import ModelConfigurator
+from ...model.transformer.attention import Attention
+from ...model.transformer.feed_forward import FeedForward
+from ...model.transformer.rope import (
+    LTXRopeType,
+    generate_freq_grid_np,
+    generate_freq_grid_pytorch,
+    precompute_freqs_cis,
+)
+from ...utils import rms_norm
 
 
-def _to_binary_mask(encoded: torch.Tensor, encoded_mask: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    """Convert connector output mask to binary mask and apply to encoded tensor."""
-    binary_mask = (encoded_mask < 0.000001).to(torch.int64)
-    binary_mask = binary_mask.reshape([encoded.shape[0], encoded.shape[1], 1])
-    encoded = encoded * binary_mask
-    return encoded, binary_mask
+class _BasicTransformerBlock1D(torch.nn.Module):
+    def __init__(
+        self,
+        dim: int,
+        heads: int,
+        dim_head: int,
+        rope_type: LTXRopeType = LTXRopeType.INTERLEAVED,
+        apply_gated_attention: bool = False,
+    ):
+        super().__init__()
+
+        self.attn1 = Attention(
+            query_dim=dim,
+            heads=heads,
+            dim_head=dim_head,
+            rope_type=rope_type,
+            apply_gated_attention=apply_gated_attention,
+        )
+
+        self.ff = FeedForward(
+            dim,
+            dim_out=dim,
+        )
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+        pe: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        # Notice that normalization is always applied before the real computation in the following blocks.
+
+        # 1. Normalization Before Self-Attention
+        norm_hidden_states = rms_norm(hidden_states)
+
+        norm_hidden_states = norm_hidden_states.squeeze(1)
+
+        # 2. Self-Attention
+        attn_output = self.attn1(norm_hidden_states, mask=attention_mask, pe=pe)
+
+        hidden_states = attn_output + hidden_states
+        if hidden_states.ndim == 4:
+            hidden_states = hidden_states.squeeze(1)
+
+        # 3. Normalization before Feed-Forward
+        norm_hidden_states = rms_norm(hidden_states)
+
+        # 4. Feed-forward
+        ff_output = self.ff(norm_hidden_states)
+
+        hidden_states = ff_output + hidden_states
+        if hidden_states.ndim == 4:
+            hidden_states = hidden_states.squeeze(1)
+
+        return hidden_states
 
 
-class EmbeddingsProcessor(nn.Module):
-    """Wraps feature extractor + video connector + optional audio connector.
-    Can operate in two modes:
-    1. create_embeddings(): Takes pre-computed features + additive mask (backward compat, used by trainer)
-    2. process_hidden_states(): Takes raw Gemma hidden states, runs feature extraction + connectors
+class Embeddings1DConnector(torch.nn.Module):
     """
+    Embeddings1DConnector applies a 1D transformer-based processing to sequential embeddings (e.g., for video, audio, or
+    other modalities). It supports rotary positional encoding (rope), optional causal temporal positioning, and can
+    substitute padded positions with learnable registers. The module is highly configurable for head size, number of
+    layers, and register usage.
+    Args:
+        attention_head_dim (int): Dimension of each attention head (default=128).
+        num_attention_heads (int): Number of attention heads (default=30).
+        num_layers (int): Number of transformer layers (default=2).
+        positional_embedding_theta (float): Scaling factor for position embedding (default=10000.0).
+        positional_embedding_max_pos (list[int] | None): Max positions for positional embeddings (default=[1]).
+        causal_temporal_positioning (bool): If True, uses causal attention (default=False).
+        num_learnable_registers (int | None): Number of learnable registers to replace padded tokens. If None, disables
+            register replacement. (default=128)
+        rope_type (LTXRopeType): The RoPE variant to use (default=DEFAULT_ROPE_TYPE).
+        double_precision_rope (bool): Use double precision rope calculation (default=False).
+    """
+
+    _supports_gradient_checkpointing = True
 
     def __init__(
         self,
-        *,
-        feature_extractor: nn.Module | None = None,
-        video_connector: Embeddings1DConnector,
-        audio_connector: Embeddings1DConnector | None = None,
+        attention_head_dim: int = 128,
+        num_attention_heads: int = 30,
+        num_layers: int = 2,
+        positional_embedding_theta: float = 10000.0,
+        positional_embedding_max_pos: list[int] | None = None,
+        causal_temporal_positioning: bool = False,
+        num_learnable_registers: int | None = 128,
+        rope_type: LTXRopeType = LTXRopeType.INTERLEAVED,
+        double_precision_rope: bool = False,
+        apply_gated_attention: bool = False,
     ):
         super().__init__()
-        self.feature_extractor = feature_extractor
-        self.video_connector = video_connector
-        self.audio_connector = audio_connector
+        self.num_attention_heads = num_attention_heads
+        self.inner_dim = num_attention_heads * attention_head_dim
+        self.causal_temporal_positioning = causal_temporal_positioning
+        self.positional_embedding_theta = positional_embedding_theta
+        self.positional_embedding_max_pos = (
+            positional_embedding_max_pos if positional_embedding_max_pos is not None else [1]
+        )
+        self.rope_type = rope_type
+        self.double_precision_rope = double_precision_rope
+        self.transformer_1d_blocks = torch.nn.ModuleList(
+            [
+                _BasicTransformerBlock1D(
+                    dim=self.inner_dim,
+                    heads=num_attention_heads,
+                    dim_head=attention_head_dim,
+                    rope_type=rope_type,
+                    apply_gated_attention=apply_gated_attention,
+                )
+                for _ in range(num_layers)
+            ]
+        )
 
-    def create_embeddings(
+        self.num_learnable_registers = num_learnable_registers
+        if self.num_learnable_registers:
+            self.learnable_registers = torch.nn.Parameter(
+                torch.rand(self.num_learnable_registers, self.inner_dim, dtype=torch.bfloat16) * 2.0 - 1.0
+            )
+
+    def _replace_padded_with_learnable_registers(
+        self, hidden_states: torch.Tensor, attention_mask: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        assert hidden_states.shape[1] % self.num_learnable_registers == 0, (
+            f"Hidden states sequence length {hidden_states.shape[1]} must be divisible by num_learnable_registers "
+            f"{self.num_learnable_registers}."
+        )
+
+        num_registers_duplications = hidden_states.shape[1] // self.num_learnable_registers
+        learnable_registers = torch.tile(self.learnable_registers, (num_registers_duplications, 1))
+        attention_mask_binary = (attention_mask.squeeze(1).squeeze(1).unsqueeze(-1) >= -9000.0).int()
+
+        non_zero_hidden_states = hidden_states[:, attention_mask_binary.squeeze().bool(), :]
+        non_zero_nums = non_zero_hidden_states.shape[1]
+        pad_length = hidden_states.shape[1] - non_zero_nums
+        adjusted_hidden_states = torch.nn.functional.pad(non_zero_hidden_states, pad=(0, 0, 0, pad_length), value=0)
+        flipped_mask = torch.flip(attention_mask_binary, dims=[1])
+        hidden_states = flipped_mask * adjusted_hidden_states + (1 - flipped_mask) * learnable_registers
+
+        attention_mask = torch.full_like(
+            attention_mask,
+            0.0,
+            dtype=attention_mask.dtype,
+            device=attention_mask.device,
+        )
+
+        return hidden_states, attention_mask
+
+    def forward(
         self,
-        video_features: torch.Tensor,
-        audio_features: torch.Tensor | None,
-        additive_attention_mask: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor]:
-        if self.audio_connector is not None and audio_features is None:
-            raise ValueError("Audio connector is configured but no audio features were provided.")
-        if self.audio_connector is None and audio_features is not None:
-            raise ValueError("Audio features were provided but no audio connector is configured.")
-
-        video_encoded, video_mask = self.video_connector(video_features, additive_attention_mask)
-        video_encoded, binary_mask = _to_binary_mask(video_encoded, video_mask)
-
-        audio_encoded = None
-        if self.audio_connector is not None:
-            audio_encoded, _ = self.audio_connector(audio_features, additive_attention_mask)
-
-        return video_encoded, audio_encoded, binary_mask.squeeze(-1)
-
-    def process_hidden_states(
-        self,
-        hidden_states: tuple[torch.Tensor, ...],
-        attention_mask: torch.Tensor,
-        padding_side: str = "left",
-    ) -> EmbeddingsProcessorOutput:
-        """Full pipeline: feature extraction -> connectors -> final embeddings.
-        Args:
-            hidden_states: Raw Gemma hidden states (tuple of tensors per layer).
-            attention_mask: Binary attention mask [B, seq_len].
-            padding_side: Padding side used during tokenization.
-        Returns:
-            EmbeddingsProcessorOutput with video_encoding, audio_encoding, and attention_mask.
+        hidden_states: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        if self.feature_extractor is None:
-            raise ValueError("feature_extractor is required for process_hidden_states()")
+        Forward pass of Embeddings1DConnector.
+        Args:
+            hidden_states (torch.Tensor): Input tensor of embeddings (shape [batch, seq_len, feature_dim]).
+            attention_mask (torch.Tensor|None): Optional mask for valid tokens (shape compatible with hidden_states).
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]: Processed features and the corresponding (possibly modified) mask.
+        """
+        if self.num_learnable_registers:
+            hidden_states, attention_mask = self._replace_padded_with_learnable_registers(hidden_states, attention_mask)
 
-        video_feats, audio_feats = self.feature_extractor(hidden_states, attention_mask, padding_side)
-        additive_mask = convert_to_additive_mask(attention_mask, video_feats.dtype)
-        video_enc, audio_enc, binary_mask = self.create_embeddings(video_feats, audio_feats, additive_mask)
-        return EmbeddingsProcessorOutput(video_enc, audio_enc, binary_mask)
+        indices_grid = torch.arange(hidden_states.shape[1], dtype=torch.float32, device=hidden_states.device)
+        indices_grid = indices_grid[None, None, :]
+        freq_grid_generator = generate_freq_grid_np if self.double_precision_rope else generate_freq_grid_pytorch
+        freqs_cis = precompute_freqs_cis(
+            indices_grid=indices_grid,
+            dim=self.inner_dim,
+            out_dtype=hidden_states.dtype,
+            theta=self.positional_embedding_theta,
+            max_pos=self.positional_embedding_max_pos,
+            num_attention_heads=self.num_attention_heads,
+            rope_type=self.rope_type,
+            freq_grid_generator=freq_grid_generator,
+        )
+
+        for block in self.transformer_1d_blocks:
+            hidden_states = block(hidden_states, attention_mask=attention_mask, pe=freqs_cis)
+
+        hidden_states = rms_norm(hidden_states)
+
+        return hidden_states, attention_mask
+
+
+class Embeddings1DConnectorConfigurator(ModelConfigurator[Embeddings1DConnector]):
+    """Configurator for video embeddings connector."""
+
+    @classmethod
+    def from_config(cls: type[Embeddings1DConnector], config: dict) -> Embeddings1DConnector:
+        transformer_config = config.get("transformer", {})
+        rope_type = LTXRopeType(transformer_config.get("rope_type", "interleaved"))
+        double_precision_rope = transformer_config.get("frequencies_precision", False) == "float64"
+        pe_max_pos = transformer_config.get("connector_positional_embedding_max_pos", [1])
+
+        # Video connector dimensions
+        num_attention_heads = transformer_config.get("connector_num_attention_heads", 30)
+        attention_head_dim = transformer_config.get("connector_attention_head_dim", 128)
+        num_layers = transformer_config.get("connector_num_layers", 2)
+
+        connector = Embeddings1DConnector(
+            num_attention_heads=num_attention_heads,
+            attention_head_dim=attention_head_dim,
+            num_layers=num_layers,
+            positional_embedding_max_pos=pe_max_pos,
+            rope_type=rope_type,
+            double_precision_rope=double_precision_rope,
+            apply_gated_attention=transformer_config.get("connector_apply_gated_attention", False),
+        )
+        return connector
+
+
+class AudioEmbeddings1DConnectorConfigurator(ModelConfigurator[Embeddings1DConnector]):
+    """Configurator for audio embeddings connector with separate dimension settings."""
+
+    @classmethod
+    def from_config(cls: type[Embeddings1DConnector], config: dict) -> Embeddings1DConnector:
+        transformer_config = config.get("transformer", {})
+        rope_type = LTXRopeType(transformer_config.get("rope_type", "interleaved"))
+        double_precision_rope = transformer_config.get("frequencies_precision", False) == "float64"
+        pe_max_pos = transformer_config.get("connector_positional_embedding_max_pos", [1])
+
+        # Audio connector dimensions - fall back to video connector config for backwards compatibility
+        num_attention_heads = transformer_config.get(
+            "audio_connector_num_attention_heads",
+            transformer_config.get("connector_num_attention_heads", 30),
+        )
+        attention_head_dim = transformer_config.get(
+            "audio_connector_attention_head_dim",
+            transformer_config.get("connector_attention_head_dim", 128),
+        )
+        num_layers = transformer_config.get(
+            "audio_connector_num_layers",
+            transformer_config.get("connector_num_layers", 2),
+        )
+
+        connector = Embeddings1DConnector(
+            num_attention_heads=num_attention_heads,
+            attention_head_dim=attention_head_dim,
+            num_layers=num_layers,
+            positional_embedding_max_pos=pe_max_pos,
+            rope_type=rope_type,
+            double_precision_rope=double_precision_rope,
+            apply_gated_attention=transformer_config.get("connector_apply_gated_attention", False),
+        )
+        return connector

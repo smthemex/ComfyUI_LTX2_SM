@@ -1,10 +1,9 @@
 import torch
 
 from .primitives import LoraStateDictWithStrength, StateDict
-from ...quantization.fp8_cast import calculate_weight_float8
-from ...quantization.fp8_scaled_mm import quantize_weight_to_fp8_per_tensor
-
-
+from ..quantization.fp8_cast import calculate_weight_float8
+from ..quantization.fp8_scaled_mm import quantize_weight_to_fp8_per_tensor
+import gc
 def apply_loras(
     model_sd: StateDict,
     lora_sd_and_strengths: list[LoraStateDictWithStrength],
@@ -151,3 +150,30 @@ def _fuse_delta_with_bfloat16(
     """Fuse LoRA delta with bfloat16 weight."""
     deltas.add_(weight)
     return {key: deltas.to(dtype=target_dtype)}
+
+def apply_loras_gguf(
+    model_sd,
+    lora_sd_and_strengths: list[LoraStateDictWithStrength],
+    dtype: torch.dtype,
+):
+    sd = {}
+    device = torch.device("meta")
+    for key, weight in model_sd.items():
+        if weight is None:
+            continue
+        device = weight.device
+        #target_dtype = dtype if dtype is not None else weight.dtype
+        #deltas_dtype = target_dtype if target_dtype not in [torch.float8_e4m3fn, torch.float8_e5m2] else torch.bfloat16
+        deltas_dtype =  torch.bfloat16
+        deltas = _prepare_deltas(lora_sd_and_strengths, key, deltas_dtype, device)
+        if deltas is None:
+            deltas = weight
+        elif weight.dtype == torch.bfloat16:
+            deltas.add_(weight)
+        else:
+            raise ValueError(f"Unsupported dtype: {weight.dtype}")
+        sd[key] = deltas
+        del weight,deltas
+    del model_sd
+    gc.collect()
+    return sd
