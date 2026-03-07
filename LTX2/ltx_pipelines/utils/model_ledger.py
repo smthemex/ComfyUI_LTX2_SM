@@ -1,22 +1,23 @@
 from dataclasses import replace
 
 import torch
-
+from ...ltx_core.loader import SDOps
 from ...ltx_core.loader.primitives import LoraPathStrengthAndSDOps
 from ...ltx_core.loader.registry import DummyRegistry, Registry
 from ...ltx_core.loader.single_gpu_model_builder import SingleGPUModelBuilder as Builder
 from ...ltx_core.model.audio_vae import (
     AUDIO_VAE_DECODER_COMFY_KEYS_FILTER,
+    AUDIO_VAE_ENCODER_COMFY_KEYS_FILTER,
     VOCODER_COMFY_KEYS_FILTER,
     AudioDecoder,
     AudioDecoderConfigurator,
+    AudioEncoder,
+    AudioEncoderConfigurator,
     Vocoder,
     VocoderConfigurator,
 )
 from ...ltx_core.model.transformer import (
     LTXV_MODEL_COMFY_RENAMING_MAP,
-    LTXV_MODEL_COMFY_RENAMING_WITH_TRANSFORMER_LINEAR_DOWNCAST_MAP,
-    UPCAST_DURING_INFERENCE,
     LTXModelConfigurator,
     X0Model,
 )
@@ -29,12 +30,23 @@ from ...ltx_core.model.video_vae import (
     VideoEncoder,
     VideoEncoderConfigurator,
 )
-from ...ltx_core.text_encoders.gemma import (
+from ...ltx_core.quantization import QuantizationPolicy
     AV_GEMMA_TEXT_ENCODER_KEY_OPS,
+from ...ltx_core.text_encoders.gemma import (
     AVGemmaTextEncoderModel,
+    EMBEDDINGS_PROCESSOR_KEY_OPS,
     AVGemmaTextEncoderModelConfigurator,
-    module_ops_from_gemma_root,
-)
+    GEMMA_LLM_KEY_OPS,
+    GEMMA_MODEL_OPS,
+    EmbeddingsProcessor,
+    EmbeddingsProcessorConfigurator,
+    GemmaTextEncoder,
+    GemmaTextEncoderConfigurator,
+     module_ops_from_gemma_root,
+     module_ops_from_gemma_root,
+ )
+ )
+from ...ltx_core.utils import find_matching_file
 
 
 class ModelLedger:
@@ -90,9 +102,9 @@ class ModelLedger:
         checkpoint_path: str | None = None,
         gemma_root_path: str | None = None,
         spatial_upsampler_path: str | None = None,
-        loras: LoraPathStrengthAndSDOps | None = None,
+        loras: tuple[LoraPathStrengthAndSDOps, ...] = (),
         registry: Registry | None = None,
-        fp8transformer: bool = False,
+        quantization: QuantizationPolicy | None = None,
         gguf_dit: bool = False,
         load_mode: str = "dit",
         clip_path="",
@@ -103,9 +115,9 @@ class ModelLedger:
         self.checkpoint_path = checkpoint_path
         self.gemma_root_path = gemma_root_path
         self.spatial_upsampler_path = spatial_upsampler_path
-        self.loras = loras or ()
+        self.loras = loras
         self.registry = registry or DummyRegistry()
-        self.fp8transformer = fp8transformer
+        self.quantization = quantization
         self.gguf_dit = gguf_dit
         self.load_mode = load_mode
         self.clip_path = clip_path
@@ -182,6 +194,14 @@ class ModelLedger:
                 registry=self.registry,
                 load_model= self.load_mode,
             )
+            # Embeddings processor only needs the LTX checkpoint (no Gemma weights)
+            self.embeddings_processor_builder = Builder(
+                model_path=self.checkpoint_path,
+                model_class_configurator=EmbeddingsProcessorConfigurator,
+                model_sd_ops=EMBEDDINGS_PROCESSOR_KEY_OPS,
+                registry=self.registry,
+            )
+            
 
             # self.vae_decoder_builder = Builder(
             #     model_path=self.checkpoint_path,
@@ -232,17 +252,21 @@ class ModelLedger:
             return self.device
         else:
             return torch.device("cpu")
-
-    def with_loras(self, loras: LoraPathStrengthAndSDOps) -> "ModelLedger":
+    def with_additional_loras(self, loras: tuple[LoraPathStrengthAndSDOps, ...]) -> "ModelLedger":
+        """Add new lora configurations to the existing ones."""
+        return self.with_loras((*self.loras, *loras))
+        
+    def with_loras(self, loras: tuple[LoraPathStrengthAndSDOps, ...]) -> "ModelLedger":
+        """Replace existing lora configurations with new ones."""
         return ModelLedger(
             dtype=self.dtype,
             device=self.device,
             checkpoint_path=self.checkpoint_path,
             gemma_root_path=self.gemma_root_path,
             spatial_upsampler_path=self.spatial_upsampler_path,
-            loras=(*self.loras, *loras),
+            loras=loras,
             registry=self.registry,
-            fp8transformer=self.fp8transformer,
+            quantization=self.quantization,
         )
 
     def transformer(self) -> X0Model:
@@ -250,18 +274,30 @@ class ModelLedger:
             raise ValueError(
                 "Transformer not initialized. Please provide a checkpoint path to the ModelLedger constructor."
             )
-        if self.fp8transformer:
-            fp8_builder = replace(
-                self.transformer_builder,
-                module_ops=(UPCAST_DURING_INFERENCE,),
-                model_sd_ops=LTXV_MODEL_COMFY_RENAMING_WITH_TRANSFORMER_LINEAR_DOWNCAST_MAP,
-            )
-            return X0Model(fp8_builder.build(device=self._target_device(),gguf_dit=self.gguf_dit)).to(self.device).eval()
-        else:
+        if self.quantization is None:
             if self.gguf_dit:
                 return X0Model(self.transformer_builder.build(device=self._target_device(), dtype=self.dtype,gguf_dit=self.gguf_dit)).eval()
             else:
-                return X0Model(self.transformer_builder.build(device=self._target_device(), dtype=self.dtype,gguf_dit=self.gguf_dit)).to(self.device).eval()
+                return (
+                    X0Model(self.transformer_builder.build(device=self._target_device(), dtype=self.dtype))
+                    .to(self.device)
+                    .eval()
+                )
+        else:
+            sd_ops = self.transformer_builder.model_sd_ops
+            if self.quantization.sd_ops is not None:
+                sd_ops = SDOps(
+                    name=f"sd_ops_chain_{sd_ops.name}+{self.quantization.sd_ops.name}",
+                    mapping=(*sd_ops.mapping, *self.quantization.sd_ops.mapping),
+                )
+            builder = replace(
+                self.transformer_builder,
+                module_ops=(*self.transformer_builder.module_ops, *self.quantization.module_ops),
+                model_sd_ops=sd_ops,
+            )
+            return X0Model(builder.build(device=self._target_device())).to(self.device).eval()
+            
+
 
     def video_decoder(self) -> VideoDecoder:
         if not hasattr(self, "vae_decoder_builder"):
@@ -291,6 +327,25 @@ class ModelLedger:
             return self.text_encoder_builder.build(device=self._target_device(), dtype=self.dtype,gguf_dit=self.gguf_dit).eval()
         else:
             return self.text_encoder_builder.build(device=self._target_device(), dtype=self.dtype,gguf_dit=self.gguf_dit).to(self.device).eval()
+    def gemma_embeddings_processor(self) -> EmbeddingsProcessor:
+        if not hasattr(self, "embeddings_processor_builder"):
+            raise ValueError(
+                "Embeddings processor not initialized. Please provide a checkpoint path to the ModelLedger constructor."
+            )
+
+        return (
+            self.embeddings_processor_builder.build(device=self._target_device(), dtype=self.dtype)
+            .to(self.device)
+            .eval()
+        )
+
+    def audio_encoder(self) -> AudioEncoder:
+        if not hasattr(self, "audio_encoder_builder"):
+            raise ValueError(
+                "Audio encoder not initialized. Please provide a checkpoint path to the ModelLedger constructor."
+            )
+
+        return self.audio_encoder_builder.build(device=self._target_device(), dtype=self.dtype).to(self.device).eval()
     def audio_decoder(self) -> AudioDecoder:
         if not hasattr(self, "audio_decoder_builder"):
             raise ValueError(
@@ -300,7 +355,7 @@ class ModelLedger:
             return self.audio_decoder_builder.build(device=self._target_device(), dtype=self.dtype,gguf_dit=self.gguf_dit).eval()
         else:
             return self.audio_decoder_builder.build(device=self._target_device(), dtype=self.dtype,gguf_dit=self.gguf_dit).to(self.device).eval()
-
+    
     def vocoder(self) -> Vocoder:
         if not hasattr(self, "vocoder_builder"):
             raise ValueError(
