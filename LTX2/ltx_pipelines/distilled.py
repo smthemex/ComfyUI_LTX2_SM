@@ -1,36 +1,34 @@
 import logging
 from collections.abc import Iterator
-
 import torch
 
 from ..ltx_core.components.diffusion_steps import EulerDiffusionStep
 from ..ltx_core.components.noisers import GaussianNoiser
 from ..ltx_core.components.protocols import DiffusionStepProtocol
 from ..ltx_core.loader import LoraPathStrengthAndSDOps
-from ..ltx_core.model.audio_vae import decode_audio as vae_decode_audio
-from ..ltx_core.model.upsampler import upsample_video
 from ..ltx_core.model.video_vae import TilingConfig, get_video_chunks_number
-from ..ltx_core.model.video_vae import decode_video as vae_decode_video
-from ..ltx_core.text_encoders.gemma import encode_text
 from ..ltx_core.types import LatentState, VideoPixelShape
-from ..ltx_pipelines.utils import ModelLedger
-from ..ltx_pipelines.utils.args import default_2_stage_distilled_arg_parser
+from ..ltx_pipelines.utils import ModelLedger,euler_denoising_loop
+from .utils.args import (
+    ImageConditioningInput,
+    default_2_stage_distilled_arg_parser,
+    detect_checkpoint_path,
+)
+from ..ltx_core.quantization import QuantizationPolicy
 from ..ltx_pipelines.utils.constants import (
-    AUDIO_SAMPLE_RATE,
     DISTILLED_SIGMA_VALUES,
     STAGE_2_DISTILLED_SIGMA_VALUES,
+    detect_params,
 )
 from ..ltx_pipelines.utils.helpers import (
     assert_resolution,
     cleanup_memory,
+    combined_image_conditionings,
     denoise_audio_video,
-    euler_denoising_loop,
-    generate_enhanced_prompt,
+    encode_prompts,
     get_device,
-    image_conditionings_by_replacing_latent,
     simple_denoising_func,
 )
-from ..ltx_pipelines.utils.media_io import encode_video
 from ..ltx_pipelines.utils.types import PipelineComponents
 
 device = get_device()
@@ -50,7 +48,7 @@ class DistilledPipeline:
         spatial_upsampler_path: str,
         loras: list[LoraPathStrengthAndSDOps],
         device: torch.device = "cpu",
-        fp8transformer: bool = False,
+        quantization: QuantizationPolicy | None = None,
         gguf_dit: bool = False,
     ):
         self.device = device
@@ -63,7 +61,7 @@ class DistilledPipeline:
             spatial_upsampler_path=spatial_upsampler_path,
             gemma_root_path=gemma_root,
             loras=loras,
-            fp8transformer=fp8transformer,
+            quantization=quantization,
             gguf_dit=gguf_dit,
             load_mode= "dit",
         )

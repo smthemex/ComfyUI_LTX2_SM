@@ -31,21 +31,17 @@ from ...ltx_core.model.video_vae import (
     VideoEncoderConfigurator,
 )
 from ...ltx_core.quantization import QuantizationPolicy
-    AV_GEMMA_TEXT_ENCODER_KEY_OPS,
 from ...ltx_core.text_encoders.gemma import (
-    AVGemmaTextEncoderModel,
     EMBEDDINGS_PROCESSOR_KEY_OPS,
-    AVGemmaTextEncoderModelConfigurator,
     GEMMA_LLM_KEY_OPS,
     GEMMA_MODEL_OPS,
     EmbeddingsProcessor,
     EmbeddingsProcessorConfigurator,
     GemmaTextEncoder,
     GemmaTextEncoderConfigurator,
-     module_ops_from_gemma_root,
-     module_ops_from_gemma_root,
+    module_ops_from_gemma_root,
  )
- )
+ 
 from ...ltx_core.utils import find_matching_file
 
 
@@ -143,8 +139,8 @@ class ModelLedger:
     def build_model_builders_clip(self):
         self.text_encoder_builder = Builder(
             model_path=self.checkpoint_path,
-            model_class_configurator=AVGemmaTextEncoderModelConfigurator,
-            model_sd_ops=AV_GEMMA_TEXT_ENCODER_KEY_OPS,
+            model_class_configurator=GemmaTextEncoderConfigurator,
+            model_sd_ops=GEMMA_LLM_KEY_OPS,
             registry=self.registry,
             module_ops=module_ops_from_gemma_root(self.gemma_root_path,self.clip_path),
             load_model= self.load_mode,
@@ -317,7 +313,7 @@ class ModelLedger:
             return self.vae_encoder_builder.build(device=self._target_device(), dtype=self.dtype,gguf_dit=self.gguf_dit,encoded=True).eval()
         else:
             return self.vae_encoder_builder.build(device=self._target_device(), dtype=self.dtype,gguf_dit=self.gguf_dit,encoded=True).to(self.device).eval()
-    def text_encoder(self) -> AVGemmaTextEncoderModel:
+    def text_encoder(self) -> GemmaTextEncoder:
         if not hasattr(self, "text_encoder_builder"):
             raise ValueError(
                 "Text encoder not initialized. Please provide a checkpoint path and gemma root path to the "

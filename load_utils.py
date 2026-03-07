@@ -14,8 +14,7 @@ from .LTX2.ltx_core.loader.primitives import LoraPathStrengthAndSDOps
 from .LTX2.ltx_core.loader import LTXV_LORA_COMFY_RENAMING_MAP
 from .LTX2.ltx_pipelines.ti2vid_one_stage import load_pipeline_ltx_one_stage,inference_ltx_one_stage
 from .LTX2.ltx_pipelines.distilled import load_pipeline_ltx_distilled,inference_ltx_distilled,DistilledPipeline
-from .LTX2.ltx_core.text_encoders.gemma import encode_text
-from .LTX2.ltx_pipelines.utils import ModelLedger
+from .LTX2.ltx_pipelines.utils import ModelLedger,encode_prompts
 from .LTX2.ltx_core.model.audio_vae import decode_audio as vae_decode_audio
 from .LTX2.ltx_core.model.video_vae import decode_video as vae_decode_video
 from .LTX2.ltx_pipelines.utils.helpers import (
@@ -104,7 +103,7 @@ def encoder_text(text_encoder,prompt,negative_prompt,image,enhanced_prompt,save_
     prompts = [p for p in [prompt, negative_prompt] if p.strip()] 
 
     with torch.no_grad():
-        context = encode_text(text_encoder, prompts=prompts)
+        context = encode_prompts(text_encoder, prompts=prompts)
 
     torch.cuda.empty_cache()
     gc.collect()

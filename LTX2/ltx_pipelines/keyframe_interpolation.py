@@ -9,31 +9,29 @@ from ..ltx_core.components.noisers import GaussianNoiser
 from ..ltx_core.components.protocols import DiffusionStepProtocol
 from ..ltx_core.components.schedulers import LTX2Scheduler
 from ..ltx_core.loader import LoraPathStrengthAndSDOps
-from ..ltx_core.model.audio_vae import decode_audio as vae_decode_audio
-from ..ltx_core.model.upsampler import upsample_video
+from ..ltx_core.quantization import QuantizationPolicy
+
 from ..ltx_core.model.video_vae import TilingConfig, get_video_chunks_number
-from ..ltx_core.model.video_vae import decode_video as vae_decode_video
-from ..ltx_core.text_encoders.gemma import encode_text
+
 from ..ltx_core.types import LatentState, VideoPixelShape
-from ..ltx_pipelines.utils import ModelLedger
-from ..ltx_pipelines.utils.args import default_2_stage_arg_parser
-from ..ltx_pipelines.utils.constants import (
-    AUDIO_SAMPLE_RATE,
-    STAGE_2_DISTILLED_SIGMA_VALUES,
+from .utils import ModelLedger
+from .utils.args import ImageConditioningInput, default_2_stage_arg_parser, detect_checkpoint_path
+from .utils.constants import (
+    STAGE_2_DISTILLED_SIGMA_VALUES, detect_params
 )
-from ..ltx_pipelines.utils.helpers import (
+from .utils.helpers import (
     assert_resolution,
     cleanup_memory,
     denoise_audio_video,
-    euler_denoising_loop,
-    generate_enhanced_prompt,
+    encode_prompts,
     get_device,
-    guider_denoising_func,
     image_conditionings_by_adding_guiding_latent,
+    multi_modal_guider_factory_denoising_func,
     simple_denoising_func,
 )
-from ..ltx_pipelines.utils.media_io import encode_video
-from ..ltx_pipelines.utils.types import PipelineComponents
+from .utils.media_io import encode_video
+from .utils.samplers import euler_denoising_loop
+from .utils.types import PipelineComponents
 
 device = get_device()
 
@@ -152,8 +150,8 @@ class KeyframeInterpolationPipeline:
                     sigmas=sigmas,
                     video_state=video_state,
                     audio_state=audio_state,
-                    stepper=stepper,
-                    denoise_fn=guider_denoising_func(
+                    stepper=stepper, #todo
+                    denoise_fn=multi_modal_guider_factory_denoising_func(
                         cfg_guider,
                         v_context_p,
                         v_context_n,

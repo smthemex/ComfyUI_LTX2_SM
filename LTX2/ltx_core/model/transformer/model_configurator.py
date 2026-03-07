@@ -1,6 +1,6 @@
 import torch
 
-from ...sd_ops import SDOps
+from ...loader.sd_ops import SDOps
 from ..model_protocol import ModelConfigurator
 from .attention import AttentionFunction
 from .model import LTXModel, LTXModelType

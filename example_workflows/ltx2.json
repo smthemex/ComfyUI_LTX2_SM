@@ -1,0 +1,666 @@
+{
+  "id": "19b12b90-3e37-4a3d-90c3-44b46f727c25",
+  "revision": 0,
+  "last_node_id": 22,
+  "last_link_id": 46,
+  "nodes": [
+    {
+      "id": 8,
+      "type": "CreateVideo",
+      "pos": [
+        1887.9280879574856,
+        3344.7378539992815
+      ],
+      "size": [
+        270,
+        78
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 29
+        },
+        {
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": 14
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            18
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateVideo"
+      },
+      "widgets_values": [
+        24
+      ]
+    },
+    {
+      "id": 14,
+      "type": "LTX2_SM_Clip",
+      "pos": [
+        496.31945069547663,
+        3602.9025904132604
+      ],
+      "size": [
+        270,
+        82
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "links": [
+            44
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LTX2_SM_Clip"
+      },
+      "widgets_values": [
+        "gemma-3-12b-it-qat-Q4_0.gguf",
+        "ltx-2-19b-embeddings_connector_dev_bf16.safetensors"
+      ]
+    },
+    {
+      "id": 19,
+      "type": "LoadImage",
+      "pos": [
+        508.74380408886327,
+        3790.334691228749
+      ],
+      "size": [
+        270,
+        314
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 4,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            32
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "0.png",
+        "image"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "LTX2_SM_Model",
+      "pos": [
+        434.288611795667,
+        3308.2661857575413
+      ],
+      "size": [
+        356.52737272338754,
+        178
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "links": [
+            35
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LTX2_SM_Model"
+      },
+      "widgets_values": [
+        "none",
+        "ltx-2-19b-dev-transformer-distill-Q8_0.gguf",
+        "none",
+        "none",
+        "none",
+        "one_stage"
+      ]
+    },
+    {
+      "id": 22,
+      "type": "LTX2_SM_ENCODER",
+      "pos": [
+        819.6484216748506,
+        3422.681641420926
+      ],
+      "size": [
+        371.7203406058783,
+        387.54526215125634
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 44
+        },
+        {
+          "name": "image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            45
+          ]
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            46
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LTX2_SM_ENCODER"
+      },
+      "widgets_values": [
+        false,
+        "description\": \"A cinematic medium shot of a young man resistance fighter concealed behind a moss-covered fallen tree in a dense jungle. He remains still for a brief moment, bolt-action rifle raised and steady as he carefully aims toward the left side of the frame, his breathing slow and controlled. He fires a single decisive shot, the rifle recoiling sharply with a brief muzzle flash cutting through the muted green forest. After the shot, he holds his position, eyes fixed forward as he listens, then lowers the rifle slightly. He steps out from behind cover and begins walking slowly toward the left side of the frame, gripping the weapon firmly and carrying it ready across his body. His expression is calm but heavy, eyes scanning ahead with quiet focus. The camera pans smoothly left with his movement, revealing a deer lying completely motionless on the forest floor, lifeless among leaves and undergrowth. He pauses briefly, acknowledging the fallen animal, then continues forward without haste.\",\n    \"camera_movement\": \"static hold during aim and shot, subtle handheld recoil at firing moment, smooth pan left following the character’s walk\",\n    \"lighting\": \"soft natural forest daylight with cool green tones and gentle shadows\",\n    \"style\": \"cinematic realism, grounded and somber tone, restrained motion, shallow depth of field, 24fps film look with light grain\",\n    \"audio\": {\n      \"ambience\": \"low jungle ambience with insects and distant birds\",\n      \"effects\": [\n        \"single sharp rifle gunshot echo\",\n        \"soft footsteps on leaves\"",
+        " \"moving animal\",\n    \"breathing animal\",\n    \"twitching body\",\n    \"excessive blood\",\n    \"gore\",\n    \"exaggerated recoil\",\n    \"slow-motion bullets\",\n    \"dramatic action\",\n    \"shaky camera\",\n    \"fast cuts\",\n    \"cgi animals\",\n    \"cartoon style\",\n    \"anime style\",\n    \"glitch\",\n    \"watermark\",\n    \"text overlay\""
+      ]
+    },
+    {
+      "id": 18,
+      "type": "LTX2_SM_DECO_VIDEO",
+      "pos": [
+        938.845479143784,
+        3918.179437476554
+      ],
+      "size": [
+        210,
+        122
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 30
+        },
+        {
+          "name": "latent",
+          "shape": 7,
+          "type": "LATENT",
+          "link": null
+        },
+        {
+          "name": "image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 32
+        }
+      ],
+      "outputs": [
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "links": [
+            36
+          ]
+        },
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LTX2_SM_DECO_VIDEO"
+      },
+      "widgets_values": [
+        768,
+        512
+      ]
+    },
+    {
+      "id": 20,
+      "type": "LTX2_SM_KSampler",
+      "pos": [
+        1267.535503306913,
+        3401.691250060405
+      ],
+      "size": [
+        270,
+        310
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 35
+        },
+        {
+          "name": "latents",
+          "shape": 7,
+          "type": "LATENT",
+          "link": 36
+        },
+        {
+          "name": "positive",
+          "shape": 7,
+          "type": "CONDITIONING",
+          "link": 45
+        },
+        {
+          "name": "negative",
+          "shape": 7,
+          "type": "CONDITIONING",
+          "link": 46
+        }
+      ],
+      "outputs": [
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "links": [
+            37
+          ]
+        },
+        {
+          "name": "audio_latents",
+          "type": "LATENT",
+          "links": [
+            38
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LTX2_SM_KSampler"
+      },
+      "widgets_values": [
+        768,
+        512,
+        8,
+        1148600861,
+        "randomize",
+        1,
+        81,
+        24,
+        true
+      ]
+    },
+    {
+      "id": 10,
+      "type": "LTX2_SM_AUDIO_VAE",
+      "pos": [
+        1262.0775690987737,
+        3821.084513215739
+      ],
+      "size": [
+        270,
+        82
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "audio_vae",
+          "type": "VAE",
+          "links": [
+            13
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LTX2_SM_AUDIO_VAE"
+      },
+      "widgets_values": [
+        "LTX2_audio_vae_bf16.safetensors"
+      ]
+    },
+    {
+      "id": 11,
+      "type": "LTX2_SM_DECO_AUDIO",
+      "pos": [
+        1584.2995336951988,
+        3622.55999182992
+      ],
+      "size": [
+        270,
+        78
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "audio_vae",
+          "type": "VAE",
+          "link": 13
+        },
+        {
+          "name": "audio_latents",
+          "type": "LATENT",
+          "link": 38
+        }
+      ],
+      "outputs": [
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": [
+            14
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LTX2_SM_DECO_AUDIO"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 9,
+      "type": "SaveVideo",
+      "pos": [
+        1884.5787350325568,
+        3512.8277182815973
+      ],
+      "size": [
+        402.9565561233294,
+        421.50869595464155
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 18
+        }
+      ],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "video/ComfyUI",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 13,
+      "type": "LTX2_SM_DECO_VIDEO",
+      "pos": [
+        1590.6836817585422,
+        3389.8413656158823
+      ],
+      "size": [
+        210,
+        122
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 15
+        },
+        {
+          "name": "latent",
+          "shape": 7,
+          "type": "LATENT",
+          "link": 37
+        },
+        {
+          "name": "image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "links": []
+        },
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            29
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LTX2_SM_DECO_VIDEO"
+      },
+      "widgets_values": [
+        768,
+        512
+      ]
+    },
+    {
+      "id": 12,
+      "type": "LTX2_SM_VAE",
+      "pos": [
+        887.1653246389677,
+        3295.941391114797
+      ],
+      "size": [
+        270,
+        58
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "vae",
+          "type": "VAE",
+          "links": [
+            15,
+            30
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LTX2_SM_VAE"
+      },
+      "widgets_values": [
+        "LTX2_video_vae_bf16.safetensors"
+      ]
+    }
+  ],
+  "links": [
+    [
+      13,
+      10,
+      0,
+      11,
+      0,
+      "VAE"
+    ],
+    [
+      14,
+      11,
+      0,
+      8,
+      1,
+      "AUDIO"
+    ],
+    [
+      15,
+      12,
+      0,
+      13,
+      0,
+      "VAE"
+    ],
+    [
+      18,
+      8,
+      0,
+      9,
+      0,
+      "VIDEO"
+    ],
+    [
+      29,
+      13,
+      1,
+      8,
+      0,
+      "IMAGE"
+    ],
+    [
+      30,
+      12,
+      0,
+      18,
+      0,
+      "VAE"
+    ],
+    [
+      32,
+      19,
+      0,
+      18,
+      2,
+      "IMAGE"
+    ],
+    [
+      35,
+      5,
+      0,
+      20,
+      0,
+      "MODEL"
+    ],
+    [
+      36,
+      18,
+      0,
+      20,
+      1,
+      "LATENT"
+    ],
+    [
+      37,
+      20,
+      0,
+      13,
+      1,
+      "LATENT"
+    ],
+    [
+      38,
+      20,
+      1,
+      11,
+      1,
+      "LATENT"
+    ],
+    [
+      44,
+      14,
+      0,
+      22,
+      0,
+      "CLIP"
+    ],
+    [
+      45,
+      22,
+      0,
+      20,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      46,
+      22,
+      1,
+      20,
+      3,
+      "CONDITIONING"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "Group",
+      "bounding": [
+        423.35566025300193,
+        3118.105364536055,
+        1915.819396985963,
+        1156.9153312099693
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.9572504807861473,
+      "offset": [
+        -271.1315223708905,
+        -3034.6615636108954
+      ]
+    },
+    "workflowRendererVersion": "LG",
+    "frontendVersion": "1.36.14",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}

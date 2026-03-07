@@ -1,31 +1,33 @@
 """Gemma text encoder components."""
 
-from .encoders.av_encoder import (
-    AV_GEMMA_TEXT_ENCODER_KEY_OPS,
-    AVGemmaEncoderOutput,
-    AVGemmaTextEncoderModel,
-    AVGemmaTextEncoderModelConfigurator,
+from .embeddings_processor import (
+    EmbeddingsProcessor,
+    EmbeddingsProcessorOutput,
+    convert_to_additive_mask,
 )
 from .encoders.base_encoder import (
-    GemmaTextEncoderModelBase,
-    encode_text,
+    GemmaTextEncoder,
     module_ops_from_gemma_root,
 )
-from .encoders.video_only_encoder import (
-    VideoGemmaEncoderOutput,
-    VideoGemmaTextEncoderModel,
-    VideoGemmaTextEncoderModelConfigurator,
+from .encoders.encoder_configurator import (
+    EMBEDDINGS_PROCESSOR_KEY_OPS,
+    GEMMA_LLM_KEY_OPS,
+    GEMMA_MODEL_OPS,
+    VIDEO_ONLY_EMBEDDINGS_PROCESSOR_KEY_OPS,
+    EmbeddingsProcessorConfigurator,
+    GemmaTextEncoderConfigurator,
 )
 
 __all__ = [
-    "AV_GEMMA_TEXT_ENCODER_KEY_OPS",
-    "AVGemmaEncoderOutput",
-    "AVGemmaTextEncoderModel",
-    "AVGemmaTextEncoderModelConfigurator",
-    "GemmaTextEncoderModelBase",
-    "VideoGemmaEncoderOutput",
-    "VideoGemmaTextEncoderModel",
-    "VideoGemmaTextEncoderModelConfigurator",
-    "encode_text",
+    "EMBEDDINGS_PROCESSOR_KEY_OPS",
+    "GEMMA_LLM_KEY_OPS",
+    "GEMMA_MODEL_OPS",
+    "VIDEO_ONLY_EMBEDDINGS_PROCESSOR_KEY_OPS",
+    "EmbeddingsProcessor",
+    "EmbeddingsProcessorConfigurator",
+    "EmbeddingsProcessorOutput",
+    "GemmaTextEncoder",
+    "GemmaTextEncoderConfigurator",
+    "convert_to_additive_mask",
     "module_ops_from_gemma_root",
 ]
