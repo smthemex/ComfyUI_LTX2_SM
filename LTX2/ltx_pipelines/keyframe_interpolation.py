@@ -10,7 +10,11 @@ from ..ltx_core.components.protocols import DiffusionStepProtocol
 from ..ltx_core.components.schedulers import LTX2Scheduler
 from ..ltx_core.loader import LoraPathStrengthAndSDOps
 from ..ltx_core.quantization import QuantizationPolicy
-
+from ..ltx_core.components.guiders import (
+    MultiModalGuiderFactory,
+    MultiModalGuiderParams,
+    create_multimodal_guider_factory,
+)
 from ..ltx_core.model.video_vae import TilingConfig, get_video_chunks_number
 
 from ..ltx_core.types import LatentState, VideoPixelShape
@@ -52,11 +56,12 @@ class KeyframeInterpolationPipeline:
         gemma_root: str,
         loras: list[LoraPathStrengthAndSDOps],
         device = "cpu",
-        fp8transformer: bool = False,
+        quantization: QuantizationPolicy | None = None,
         gguf_dit=False,
     ):
         self.device = device
         self.dtype = torch.bfloat16
+        self.distilled_lora=distilled_lora
         self.stage_1_model_ledger = ModelLedger(
             dtype=self.dtype,
             device=device,
@@ -64,29 +69,30 @@ class KeyframeInterpolationPipeline:
             spatial_upsampler_path=spatial_upsampler_path,
             gemma_root_path=gemma_root,
             loras=loras,
-            fp8transformer=fp8transformer,
+            quantization=quantization,
             gguf_dit=gguf_dit,
             load_mode= "dit",
         )
-        self.stage_2_model_ledger = self.stage_1_model_ledger.with_loras(
-            loras=distilled_lora,
-        )
+        if self.distilled_lora:
+            self.stage_2_model_ledger = self.stage_1_model_ledger.with_additional_loras(
+                loras=distilled_lora,
+            )
         self.pipeline_components = PipelineComponents(
             dtype=self.dtype,
             device=device,
         )
 
-    def load_dit(self,stage1=True,load=True,):
-        if load:
-            if stage1:
-                self.transformer1=self.stage_1_model_ledger.transformer()
-            else:
-                self.transformer2=self.stage_2_model_ledger.transformer()
+    def load_dit(self,stage1=True,):
+        if stage1:
+            self.transformer1=self.stage_1_model_ledger.transformer()
         else:
-            if not  stage1:
-                self.transformer2=None
-                del self.transformer2
-            cleanup_memory()
+            if  self.distilled_lora:
+                self.transformer1=None
+                cleanup_memory()
+                self.transformer2=self.stage_2_model_ledger.transformer()
+            else:
+                self.transformer2=self.transformer1
+
     @torch.inference_mode()
     def __call__(  # noqa: PLR0913
         self,
@@ -98,7 +104,8 @@ class KeyframeInterpolationPipeline:
         num_frames: int,
         frame_rate: float,
         num_inference_steps: int,
-        cfg_guidance_scale: float,
+        video_guider_params: MultiModalGuiderParams | MultiModalGuiderFactory,
+        audio_guider_params: MultiModalGuiderParams | MultiModalGuiderFactory,
         images: list[tuple[str, int, float]],
         tiling_config: TilingConfig | None = None,
         enhance_prompt: bool = False,
@@ -114,15 +121,9 @@ class KeyframeInterpolationPipeline:
         generator = torch.Generator(device=cur_device).manual_seed(seed)
         noiser = GaussianNoiser(generator=generator)
         stepper = EulerDiffusionStep()
-        cfg_guider = CFGGuider(cfg_guidance_scale)
+
         dtype = torch.bfloat16
 
-        # text_encoder = self.stage_1_model_ledger.text_encoder()
-        # if enhance_prompt:
-        #     prompt = generate_enhanced_prompt(
-        #         text_encoder, prompt, images[0][0] if len(images) > 0 else None, seed=seed
-        #     )
-        # context_p, context_n = encode_text(text_encoder, prompts=[prompt, negative_prompt])
         v_context_p, a_context_p = context_p
         v_context_n, a_context_n = context_n
 
@@ -130,9 +131,7 @@ class KeyframeInterpolationPipeline:
         #del text_encoder
         cleanup_memory()
 
-        # Stage 1: Initial low resolution video generation.
-        #video_encoder = self.stage_1_model_ledger.video_encoder()
-        #transformer = self.stage_1_model_ledger.transformer()
+
         if stage_one:
             if offload:
                 from ..ltx_core.model.transformer.model import BlockGPUManager         
@@ -150,37 +149,34 @@ class KeyframeInterpolationPipeline:
                     sigmas=sigmas,
                     video_state=video_state,
                     audio_state=audio_state,
-                    stepper=stepper, #todo
+                    stepper=stepper, 
                     denoise_fn=multi_modal_guider_factory_denoising_func(
-                        cfg_guider,
-                        v_context_p,
-                        v_context_n,
-                        a_context_p,
-                        a_context_n,
-                        transformer=self.transformer1, 
+                        video_guider_factory=create_multimodal_guider_factory(
+                        params=video_guider_params,
+                        negative_context=v_context_n,
+                    ),
+                        audio_guider_factory=create_multimodal_guider_factory(
+                            params=audio_guider_params,
+                            negative_context=a_context_n,
+                        ),
+                        v_context=v_context_p,
+                        a_context=a_context_p,
+                        transformer=self.transformer1,  # noqa: F821
                         gpu_manager=gpu_manager, # noqa: F821
                     ),
-                    gpu_manager=gpu_manager,
                 )
 
-            stage_1_output_shape = VideoPixelShape(
-                batch=1,
-                frames=num_frames,
-                width=width // 2,
-                height=height // 2,
-                fps=frame_rate,
-            )
-            # stage_1_conditionings = image_conditionings_by_adding_guiding_latent(
-            #     images=images,
-            #     height=stage_1_output_shape.height,
-            #     width=stage_1_output_shape.width,
-            #     video_encoder=video_encoder,
-            #     dtype=dtype,
-            #     device=self.device,
+            # stage_1_output_shape = VideoPixelShape(
+            #     batch=1,
+            #     frames=num_frames,
+            #     width=width // 2,
+            #     height=height // 2,
+            #     fps=frame_rate,
             # )
+
             video_state, audio_state = denoise_audio_video(
-                output_shape=stage_1_output_shape,
-                conditionings=images[1] if images else [],
+                 output_shape=images["stage_1_output_shape"],
+                conditionings=images["stage_1_conditionings"],
                 noiser=noiser,
                 sigmas=sigmas,
                 stepper=stepper,
@@ -191,17 +187,10 @@ class KeyframeInterpolationPipeline:
             )
 
             torch.cuda.synchronize()
-            #del transformer
             cleanup_memory()
             return video_state.latent, audio_state.latent
         else:
-            self.load_dit(stage1=False,load=True,)
-            # Stage 2: Upsample and refine the video at higher resolution with distilled LORA.
-            # upscaled_video_latent = upsample_video(
-            #     latent=video_state.latent[:1],
-            #     video_encoder=video_encoder,
-            #     upsampler=self.stage_2_model_ledger.spatial_upsampler(),
-            # )
+            self.load_dit(False)
             if offload:
                 from ..ltx_core.model.transformer.model import BlockGPUManager         
                 gpu_manager = BlockGPUManager(device="cuda",)
@@ -210,8 +199,6 @@ class KeyframeInterpolationPipeline:
                 gpu_manager = None
             torch.cuda.synchronize()
             cleanup_memory()
-
-            #transformer = self.stage_2_model_ledger.transformer()
             distilled_sigmas = torch.Tensor(STAGE_2_DISTILLED_SIGMA_VALUES).to(cur_device)
 
             def second_stage_denoising_loop(
@@ -228,21 +215,13 @@ class KeyframeInterpolationPipeline:
                         transformer=self.transformer2,
                         gpu_manager=gpu_manager,  # noqa: F821
                     ),
-                    gpu_manager=gpu_manager,
                 )
 
-            stage_2_output_shape = VideoPixelShape(batch=1, frames=num_frames, width=width, height=height, fps=frame_rate)
-            # stage_2_conditionings = image_conditionings_by_adding_guiding_latent(
-            #     images=images,
-            #     height=stage_2_output_shape.height,
-            #     width=stage_2_output_shape.width,
-            #     video_encoder=video_encoder,
-            #     dtype=dtype,
-            #     device=self.device,
-            # )
+            #stage_2_output_shape = VideoPixelShape(batch=1, frames=num_frames, width=width, height=height, fps=frame_rate)
+
             video_state, audio_state = denoise_audio_video(
-                output_shape=stage_2_output_shape,
-                conditionings=images[0] if images else [],
+                output_shape=images["stage_2_output_shape"],
+                conditionings=images["stage_2_conditionings"],
                 noiser=noiser,
                 sigmas=distilled_sigmas,
                 stepper=stepper,
@@ -259,15 +238,8 @@ class KeyframeInterpolationPipeline:
             if gpu_manager is not None:
                 gpu_manager.unload_blocks_to_cpu()
 
-            # del transformer
-            # del video_encoder
             cleanup_memory()
 
-            # decoded_video = vae_decode_video(
-            #     video_state.latent, self.stage_2_model_ledger.video_decoder(), tiling_config, generator)
-            # decoded_audio = vae_decode_audio(
-            #     audio_state.latent, self.stage_2_model_ledger.audio_decoder(), self.stage_2_model_ledger.vocoder()
-            # )
             return video_state.latent, audio_state.latent
 
 
@@ -278,7 +250,7 @@ def load_pipeline_Keyframe_ltx(
     gemma_root: str,
     loras: list[str],
     device: str = "cpu",
-    fp8transformer: bool=False,
+    quantization: QuantizationPolicy | None = None,
     gguf_dit=False,
 ) -> KeyframeInterpolationPipeline:
     
@@ -289,10 +261,10 @@ def load_pipeline_Keyframe_ltx(
         gemma_root=gemma_root,
         loras=loras,
         device=device,
-        fp8transformer=fp8transformer,
+        quantization=quantization,
         gguf_dit=gguf_dit,
     )
-    pipeline.load_dit() #check it
+    pipeline.load_dit() 
     return pipeline
 
 @torch.inference_mode()
@@ -300,30 +272,26 @@ def inference_ltx_Keyframe(
     pipeline,
     context_p,
     context_n,
+    latents,
     seed: int,
-    height: int,
-    width: int,
-    num_frames: int,
-    frame_rate: int,
     num_inference_steps: int,
     cfg_guidance_scale: float,
-    images: str,
     offload=True,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    
+    num_frames = latents["num_frames"]
     tiling_config = TilingConfig.default()
     video_chunks_number = get_video_chunks_number(num_frames, tiling_config)
     video, audio = pipeline(
         prompt=None,
         negative_prompt=None,
         seed=seed,
-        height=height,
-        width=width,
+        height=latents["height"],
+        width=latents["width"],
         num_frames=num_frames,
-        frame_rate=frame_rate,
+        frame_rate=latents["frame_rate"],
         num_inference_steps=num_inference_steps,
         cfg_guidance_scale=cfg_guidance_scale,
-        images=images,
+        images=latents,
         tiling_config=tiling_config,
         context_p=context_p,
         context_n=context_n,
@@ -331,44 +299,4 @@ def inference_ltx_Keyframe(
     )
     return video, audio
 
-# @torch.inference_mode()
-# def main() -> None:
-#     logging.getLogger().setLevel(logging.INFO)
-#     parser = default_2_stage_arg_parser()
-#     args = parser.parse_args()
-#     pipeline = KeyframeInterpolationPipeline(
-#         checkpoint_path=args.checkpoint_path,
-#         distilled_lora=args.distilled_lora,
-#         spatial_upsampler_path=args.spatial_upsampler_path,
-#         gemma_root=args.gemma_root,
-#         loras=args.lora,
-#         fp8transformer=args.enable_fp8,
-#     )
-#     tiling_config = TilingConfig.default()
-#     video_chunks_number = get_video_chunks_number(args.num_frames, tiling_config)
-#     video, audio = pipeline(
-#         prompt=args.prompt,
-#         negative_prompt=args.negative_prompt,
-#         seed=args.seed,
-#         height=args.height,
-#         width=args.width,
-#         num_frames=args.num_frames,
-#         frame_rate=args.frame_rate,
-#         num_inference_steps=args.num_inference_steps,
-#         cfg_guidance_scale=args.cfg_guidance_scale,
-#         images=args.images,
-#         tiling_config=tiling_config,
-#     )
 
-#     encode_video(
-#         video=video,
-#         fps=args.frame_rate,
-#         audio=audio,
-#         audio_sample_rate=AUDIO_SAMPLE_RATE,
-#         output_path=args.output_path,
-#         video_chunks_number=video_chunks_number,
-#     )
-
-
-# if __name__ == "__main__":
-#     main()

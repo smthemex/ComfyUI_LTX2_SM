@@ -1,0 +1,16 @@
+[project]
+name = "ltx2_sm"
+description = "LTX-2 is the first DiT-based audio-video foundation model that contains all core capabilities of modern video generation in one modelsynchronized audio and video"
+version = "1.0.0"
+license = {file = "LICENSE"}
+dependencies = ["diffusers", "accelerate", "transformers", "tokenizers", "tqdm", "gguf", "omegaconf"]
+
+[project.urls]
+Repository = "https://github.com/smthemex/ComfyUI_LTX2_SM"
+#  Used by Comfy Registry https://registry.comfy.org
+
+[tool.comfy]
+PublisherId = "smthemex"
+DisplayName = "ComfyUI_LTX2_SM"
+Icon = ""
+includes = []

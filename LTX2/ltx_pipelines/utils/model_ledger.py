@@ -119,6 +119,7 @@ class ModelLedger:
         self.clip_path = clip_path
         if self.load_mode == "clip":
             self.build_model_builders_clip()
+            self.build_model_builders_embeddings()
         elif self.load_mode == "vae":
             self.build_model_builders_vae()
         elif self.load_mode == "audio":
@@ -137,14 +138,25 @@ class ModelLedger:
         )
 
     def build_model_builders_clip(self):
+        module_ops = module_ops_from_gemma_root(self.gemma_root_path)
         self.text_encoder_builder = Builder(
-            model_path=self.checkpoint_path,
+            model_path=self.clip_path,
             model_class_configurator=GemmaTextEncoderConfigurator,
             model_sd_ops=GEMMA_LLM_KEY_OPS,
             registry=self.registry,
-            module_ops=module_ops_from_gemma_root(self.gemma_root_path,self.clip_path),
+            module_ops=(GEMMA_MODEL_OPS, *module_ops),
             load_model= self.load_mode,
          )
+    def build_model_builders_embeddings(self):
+        # Embeddings processor only needs the LTX checkpoint (no Gemma weights)
+        self.embeddings_processor_builder = Builder(
+            model_path=self.checkpoint_path,
+            model_class_configurator=EmbeddingsProcessorConfigurator,
+            model_sd_ops=EMBEDDINGS_PROCESSOR_KEY_OPS,
+            registry=self.registry,
+            load_model= self.load_mode,
+        )
+
     def build_model_builders_audio(self):
 
         self.audio_decoder_builder = Builder(
@@ -154,7 +166,13 @@ class ModelLedger:
             registry=self.registry,
             load_model= self.load_mode,
         )
-
+        self.audio_encoder_builder = Builder[AudioEncoder](
+                model_path=self.checkpoint_path,
+                model_class_configurator=AudioEncoderConfigurator,
+                model_sd_ops=AUDIO_VAE_ENCODER_COMFY_KEYS_FILTER,
+                registry=self.registry,
+                load_model= self.load_mode,
+            )
         self.vocoder_builder = Builder(
             model_path=self.checkpoint_path,
             model_class_configurator=VocoderConfigurator,
@@ -180,6 +198,8 @@ class ModelLedger:
             load_model= self.load_mode,
         )
 
+
+
     def build_model_builders(self) -> None:
         if self.checkpoint_path is not None:
             self.transformer_builder = Builder(
@@ -190,13 +210,13 @@ class ModelLedger:
                 registry=self.registry,
                 load_model= self.load_mode,
             )
-            # Embeddings processor only needs the LTX checkpoint (no Gemma weights)
-            self.embeddings_processor_builder = Builder(
-                model_path=self.checkpoint_path,
-                model_class_configurator=EmbeddingsProcessorConfigurator,
-                model_sd_ops=EMBEDDINGS_PROCESSOR_KEY_OPS,
-                registry=self.registry,
-            )
+            # # Embeddings processor only needs the LTX checkpoint (no Gemma weights)
+            # self.embeddings_processor_builder = Builder(
+            #     model_path=self.checkpoint_path,
+            #     model_class_configurator=EmbeddingsProcessorConfigurator,
+            #     model_sd_ops=EMBEDDINGS_PROCESSOR_KEY_OPS,
+            #     registry=self.registry,
+            # )
             
 
             # self.vae_decoder_builder = Builder(
@@ -263,6 +283,8 @@ class ModelLedger:
             loras=loras,
             registry=self.registry,
             quantization=self.quantization,
+            gguf_dit=self.gguf_dit,
+            load_mode=self.load_mode,
         )
 
     def transformer(self) -> X0Model:
@@ -274,11 +296,7 @@ class ModelLedger:
             if self.gguf_dit:
                 return X0Model(self.transformer_builder.build(device=self._target_device(), dtype=self.dtype,gguf_dit=self.gguf_dit)).eval()
             else:
-                return (
-                    X0Model(self.transformer_builder.build(device=self._target_device(), dtype=self.dtype))
-                    .to(self.device)
-                    .eval()
-                )
+                return X0Model(self.transformer_builder.build(device=self._target_device(), dtype=self.dtype)).to(self.device).eval()
         else:
             sd_ops = self.transformer_builder.model_sd_ops
             if self.quantization.sd_ops is not None:
@@ -293,8 +311,6 @@ class ModelLedger:
             )
             return X0Model(builder.build(device=self._target_device())).to(self.device).eval()
             
-
-
     def video_decoder(self) -> VideoDecoder:
         if not hasattr(self, "vae_decoder_builder"):
             raise ValueError(
@@ -328,20 +344,27 @@ class ModelLedger:
             raise ValueError(
                 "Embeddings processor not initialized. Please provide a checkpoint path to the ModelLedger constructor."
             )
-
-        return (
-            self.embeddings_processor_builder.build(device=self._target_device(), dtype=self.dtype)
-            .to(self.device)
-            .eval()
-        )
+        if self.gguf_dit:
+            return (
+                self.embeddings_processor_builder.build(device=self._target_device(), dtype=self.dtype,gguf_dit=self.gguf_dit)
+            )
+        else:
+            return (
+                self.embeddings_processor_builder.build(device=self._target_device(), dtype=self.dtype,gguf_dit=self.gguf_dit)
+                .to(self.device)
+                .eval()
+            )
 
     def audio_encoder(self) -> AudioEncoder:
         if not hasattr(self, "audio_encoder_builder"):
             raise ValueError(
                 "Audio encoder not initialized. Please provide a checkpoint path to the ModelLedger constructor."
             )
-
-        return self.audio_encoder_builder.build(device=self._target_device(), dtype=self.dtype).to(self.device).eval()
+        if self.gguf_dit:
+            return self.audio_encoder_builder.build(device=self._target_device(), dtype=self.dtype,gguf_dit=self.gguf_dit).eval()
+        else:
+            return self.audio_encoder_builder.build(device=self._target_device(), dtype=self.dtype,gguf_dit=self.gguf_dit).to(self.device).eval()
+        
     def audio_decoder(self) -> AudioDecoder:
         if not hasattr(self, "audio_decoder_builder"):
             raise ValueError(

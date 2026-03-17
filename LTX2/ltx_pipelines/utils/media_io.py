@@ -106,7 +106,9 @@ def load_video_conditioning(
     Loads a video from a path and preprocesses it for conditioning.
     Note: The video is resized to the nearest multiple of 2 for compatibility with video codecs.
     """
+      
     frames = decode_video_from_file(path=video_path, frame_cap=frame_cap, device=device)
+   
     result = None
     for f in frames:
         frame = resize_and_center_crop(f.to(torch.float32), height, width)
@@ -277,6 +279,39 @@ def get_videostream_metadata(path: str) -> tuple[float, int, int, int]:
     finally:
         container.close()
 
+def apply_start_time_max_duration(waveform: torch.Tensor, sample_rate, 
+                                 start_time: float = 0.0, max_duration: float = None):
+    """
+    手动应用开始时间和最大持续时间到已有的音频波形
+    
+    Args:
+        waveform: 音频波形张量，形状为 (batch, channels, samples)
+        sample_rate: 采样率
+        start_time: 开始时间（秒）
+        max_duration: 最大持续时间（秒）
+    
+    Returns:
+        裁剪后的音频波形
+    """
+    # 计算起始样本索引
+    start_sample = int(start_time * sample_rate)
+    if waveform.size(0) == 1:
+        waveform = waveform.repeat(2, 1) #  make sure 2 channels
+    #print(waveform.shape) #torch.Size([2, 1409024])
+    # 计算结束样本索引r
+    if max_duration is not None:
+        end_sample = start_sample + int(max_duration * sample_rate)
+    else:
+        end_sample = waveform.shape[-1]  # 使用全部样本
+    
+    # 确保索引不超出范围
+    start_sample = min(start_sample, waveform.shape[-1])
+    end_sample = min(end_sample, waveform.shape[-1])
+    
+    # 裁剪音频
+    cropped_waveform = waveform[..., start_sample:end_sample]
+    
+    return cropped_waveform
 
 def decode_audio_from_file(
     path: str, device: torch.device, start_time: float = 0.0, max_duration: float | None = None

@@ -65,6 +65,7 @@ class BlockGPUManager:
 
         if hasattr(transformer_model, 'adaln_single'):
             self.embedder_modules.append(transformer_model.adaln_single)
+
         if hasattr(transformer_model, 'audio_adaln_single'):
             self.embedder_modules.append(transformer_model.audio_adaln_single)
 
@@ -88,6 +89,12 @@ class BlockGPUManager:
         if hasattr(transformer_model, 'av_ca_v2a_gate_adaln_single'):
             self.embedder_modules.append(transformer_model.av_ca_v2a_gate_adaln_single)
 
+        if hasattr(transformer_model, 'prompt_adaln_single'):
+            self.embedder_modules.append(transformer_model.prompt_adaln_single)
+
+        if hasattr(transformer_model, 'audio_prompt_adaln_single'):
+            self.embedder_modules.append(transformer_model.audio_prompt_adaln_single)
+
         if hasattr(transformer_model, 'cross_attn_rope'):
             self.embedder_modules.append(transformer_model.cross_attn_rope)
         if hasattr(transformer_model, 'cross_attn_audio_rope'):
@@ -107,6 +114,7 @@ class BlockGPUManager:
             self.output_modules.append(transformer_model.audio_norm_out)  
         if hasattr(transformer_model, 'audio_proj_out'):
             self.output_modules.append(transformer_model.audio_proj_out)
+
     
     def _initialize_embedder_output_modules(self):
         """初始化embedder和output模块，将它们移到GPU"""
