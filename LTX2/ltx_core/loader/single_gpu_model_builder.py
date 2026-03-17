@@ -3,7 +3,7 @@ from dataclasses import dataclass, field, replace
 from typing import Generic
 import gc
 import torch
-
+import numpy as np
 from .fuse_loras import apply_loras,apply_loras_gguf
 from .module_ops import ModuleOps
 from .primitives import (
@@ -14,6 +14,7 @@ from .primitives import (
     StateDict,
     StateDictLoader,
 )
+from ..text_encoders.gemma.encoders.base_encoder import load_gguf_checkpoint_gemma
 from .registry import DummyRegistry, Registry
 from .sd_ops import SDOps, ContentReplacement, ContentMatching
 from .sft_loader import SafetensorsModelStateDictLoader
@@ -79,6 +80,8 @@ class SingleGPUModelBuilder(Generic[ModelType], ModelBuilderProtocol[ModelType],
                 model = module_op.mutator(model)
         return model
     
+  
+
     def load_sd(
         self, paths: list[str], registry: Registry, device: torch.device | None, sd_ops: SDOps | None = None,gguf_dit: bool = False
     ) -> StateDict:
@@ -104,6 +107,7 @@ class SingleGPUModelBuilder(Generic[ModelType], ModelBuilderProtocol[ModelType],
         uninitialized_buffers = [name for name, buffer in meta_model.named_buffers() if str(buffer.device) == "meta"]
         if uninitialized_params or uninitialized_buffers:
             logger.warning(f"Uninitialized parameters or buffers: {uninitialized_params + uninitialized_buffers}")
+           
             return meta_model
         retval = meta_model.to(device)
         return retval
@@ -115,7 +119,16 @@ class SingleGPUModelBuilder(Generic[ModelType], ModelBuilderProtocol[ModelType],
         if self.load_model in ["vae","audio","clip","spatial"]:
             first_shard_path = self.model_path[0] if isinstance(self.model_path, tuple) else self.model_path
             meta_model = self.meta_model_(config, self.module_ops)
-            model_state_dict = self.load_sd(first_shard_path, sd_ops=self.model_sd_ops, registry=self.registry, device=device, gguf_dit=gguf_dit)
+            if self.load_model == "clip"  and first_shard_path.endswith(".gguf"):
+                from diffusers import GGUFQuantizationConfig
+                from diffusers.quantizers.gguf import GGUFQuantizer
+                g_config = GGUFQuantizationConfig(compute_dtype=torch.bfloat16)
+                hf_quantizer = GGUFQuantizer(quantization_config=g_config)
+                hf_quantizer.pre_quantized = True
+                print("loading clip",first_shard_path)
+                model_state_dict=load_gguf_checkpoint_gemma(first_shard_path) 
+            else:
+                model_state_dict = self.load_sd(first_shard_path, sd_ops=self.model_sd_ops, registry=self.registry, device=device, gguf_dit=gguf_dit)
             if self.load_model == "vae" :
                 if encoded and  self.load_model == "vae":
                     sd = {key.replace("encoder.",""): value for key, value in model_state_dict.items() if  not key.startswith("decoder.") }
@@ -125,6 +138,70 @@ class SingleGPUModelBuilder(Generic[ModelType], ModelBuilderProtocol[ModelType],
                     sd = {key: value.to(dtype=dtype) for key, value in model_state_dict.items()}
                 del model_state_dict
                 gc.collect()
+            elif self.load_model == "clip"and first_shard_path.endswith(".gguf") :
+                def adjust_key_name(key):
+                    from packaging import version
+                    import transformers
+                    transformers_version = version.parse(transformers.__version__)
+                    required_version = version.parse('4.57.0')
+                    if "vision_model.embeddings.position_ids" in key or "language_model.embed_tokens.embed_scale" in key:
+                        print(key)
+                    if transformers_version >= required_version:
+                        if "language_model.model." in key:
+                            return 'model.model.language_model.' + key[len('language_model.model.'):]
+                        else:
+                            return 'model.model.' + key
+                    else:
+                        if key.startswith('language_model.model.') :
+                            return 'model.language_model.' + key[len('language_model.model.'):]
+                        elif key.startswith('vision_tower.'):
+                            return 'model.' + key
+                        elif key.startswith('multi_modal_projector.'):
+                            return 'model.' + key
+                        else:
+                            return key
+                #match_state_dict(meta_model, model_state_dict,50)    
+                adjusted_state_dict = {}
+                for key, value in model_state_dict.items():
+                    new_key = adjust_key_name(key)
+                    adjusted_state_dict[new_key] = value
+                del model_state_dict
+                #match_state_dict(meta_model, adjusted_state_dict,50)
+                has_embed_tokens_key = False
+
+                for key in adjusted_state_dict.keys():
+                    if 'lm_head.weight' in key:
+                        has_embed_tokens_key = True
+                        break
+                for key in adjusted_state_dict.keys():
+                    if 'embed_tokens.weight' in key:
+                        embed_tokens_key = key
+                        break
+                print("has_embed_tokens_key",has_embed_tokens_key)     
+                if not  has_embed_tokens_key:
+                    adjusted_state_dict['model.lm_head.weight'] = adjusted_state_dict[embed_tokens_key]
+                #match_state_dict(meta_model, adjusted_state_dict,50)    
+
+                hf_quantizer._process_model_before_weight_loading(
+                    meta_model,
+                    device_map=None,
+                    state_dict=adjusted_state_dict
+                )
+
+                from diffusers.models.model_loading_utils import load_model_dict_into_meta
+
+                load_model_dict_into_meta(
+                    meta_model, 
+                    adjusted_state_dict, 
+                    hf_quantizer=hf_quantizer,
+                    device_map=None,
+                    dtype=torch.bfloat16
+                )
+                    
+                hf_quantizer._process_model_after_weight_loading(meta_model)
+                meta_model.eval()
+                gc.collect()
+                return self._return_model(meta_model, device)
             else:
                 sd = model_state_dict.sd
                 del model_state_dict
@@ -134,30 +211,7 @@ class SingleGPUModelBuilder(Generic[ModelType], ModelBuilderProtocol[ModelType],
             # 打印 meta_model 和 state_dict 的键以进行比较
             
            
-            meta_model_keys = set(meta_model.state_dict().keys())   
-            state_dict_keys = set(sd.keys())
- 
-            # 打印匹配的键的数量
-            matching_keys = meta_model_keys.intersection(state_dict_keys)
-            print(f"Matching keys count: {len(matching_keys)}")
-            
-            # 打印不在 meta_model 中但在 state_dict 中的键（多余键）
-            extra_keys = state_dict_keys - meta_model_keys
-            if extra_keys:
-                print(f"Extra keys in state_dict (not in meta_model): {len(extra_keys)}")
-                for key in list(extra_keys)[:10]:  # 只显示前10个
-                    print(f"  - {key}")
-            
-            # 打印不在 state_dict 中但在 meta_model 中的键（缺失键）
-            missing_keys = meta_model_keys - state_dict_keys
-            if missing_keys:
-                print(f"Missing keys in state_dict (not in state_dict): {len(missing_keys)}")
-                for key in list(missing_keys)[:10]:  # 只显示前10个
-                    print(f"  - {key}")
-            
-            # 如果需要，也可以打印部分匹配的键
-            print(f"Sample matching keys: {list(matching_keys)[:5]}")
-
+            #match_state_dict(meta_model, sd)
             meta_model.load_state_dict(sd, strict=False, assign=True)
             del sd
             gc.collect()
@@ -215,7 +269,9 @@ class SingleGPUModelBuilder(Generic[ModelType], ModelBuilderProtocol[ModelType],
             del final_sd
             gc.collect()
         return self._return_model(meta_model, device)
-        
+    
+
+     
     def set_gguf2meta_model(self,meta_model,model_state_dict,dtype,device,lora_sd_and_strengths=None):
         from diffusers import GGUFQuantizationConfig
         from diffusers.quantizers.gguf import GGUFQuantizer
@@ -266,7 +322,6 @@ class SingleGPUModelBuilder(Generic[ModelType], ModelBuilderProtocol[ModelType],
         del model_state_dict
         gc.collect()
         return meta_model.to(dtype=dtype)
-
 
 
 def load_gguf_checkpoint(gguf_checkpoint_path, sd_ops=None, return_tensors=False):
@@ -334,7 +389,7 @@ def load_gguf_checkpoint(gguf_checkpoint_path, sd_ops=None, return_tensors=False
                 )
             )
 
-        weights = torch.from_numpy(tensor.data.copy())
+        weights = torch.from_numpy(tensor.data) #tensor.data.copy()
         if sd_ops is not None:
             if is_simple_replacement:
                 if replacement_from in name:
@@ -362,3 +417,29 @@ def load_gguf_checkpoint(gguf_checkpoint_path, sd_ops=None, return_tensors=False
     del reader
     gc.collect()
     return parsed_parameters
+
+def match_state_dict(meta_model, sd,show_num=10):
+
+    meta_model_keys = set(meta_model.state_dict().keys())   
+    state_dict_keys = set(sd.keys())
+
+    # 打印匹配的键的数量
+    matching_keys = meta_model_keys.intersection(state_dict_keys)
+    print(f"Matching keys count: {len(matching_keys)}")
+    
+    # 打印不在 meta_model 中但在 state_dict 中的键（多余键）
+    extra_keys = state_dict_keys - meta_model_keys
+    if extra_keys:
+        print(f"Extra keys in state_dict (not in meta_model): {len(extra_keys)}")
+        for key in list(extra_keys)[:show_num]:  # 只显示前10个
+            print(f"  - {key}")
+    
+    # 打印不在 state_dict 中但在 meta_model 中的键（缺失键）
+    missing_keys = meta_model_keys - state_dict_keys
+    if missing_keys:
+        print(f"Missing keys in state_dict (not in state_dict): {len(missing_keys)}")
+        for key in list(missing_keys)[:show_num]:  # 只显示前10个
+            print(f"  - {key}")
+    
+    # 如果需要，也可以打印部分匹配的键
+    print(f"Sample matching keys: {list(matching_keys)[:5]}")

@@ -70,6 +70,7 @@ def encode_prompts(
     """
     text_encoder = model_ledger.text_encoder()
     if enhance_first_prompt:
+        print("enhanced_prompt")
         prompts = list(prompts)
         prompts[0] = generate_enhanced_prompt(text_encoder, prompts[0], enhance_prompt_image, seed=enhance_prompt_seed)
     raw_outputs = [text_encoder.encode(p) for p in prompts]
@@ -78,11 +79,16 @@ def encode_prompts(
     cleanup_memory()
 
     embeddings_processor = model_ledger.gemma_embeddings_processor()
+
     results: list[EmbeddingsProcessorOutput] = [
         embeddings_processor.process_hidden_states(hs, mask) for hs, mask in raw_outputs
     ]
     del embeddings_processor
     cleanup_memory()
+    try:
+        print("embedding_processor",results[0][0].shape,results[1][0].shape)
+    except Exception as e:
+        print("embedding_processor",e)
     return results
 
 
@@ -316,7 +322,7 @@ def simple_denoising_func(
     video_context: torch.Tensor, audio_context: torch.Tensor, transformer: X0Model, gpu_manager=None,
 ) -> DenoisingFunc:
     def simple_denoising_step(
-        video_state: LatentState, audio_state: LatentState, sigmas: torch.Tensor, step_index: int, gpu_manager,
+        video_state: LatentState, audio_state: LatentState, sigmas: torch.Tensor, step_index: int,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         sigma = sigmas[step_index]
         pos_video = modality_from_latent_state(video_state, video_context, sigma)
@@ -338,7 +344,7 @@ def guider_denoising_func(
     gpu_manager=None,
 ) -> DenoisingFunc:
     def guider_denoising_step(
-        video_state: LatentState, audio_state: LatentState, sigmas: torch.Tensor, step_index: int, gpu_manager,
+        video_state: LatentState, audio_state: LatentState, sigmas: torch.Tensor, step_index: int,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         sigma = sigmas[step_index]
         pos_video = modality_from_latent_state(video_state, v_context_p, sigma)
@@ -368,7 +374,9 @@ def multi_modal_guider_denoising_func(
     *,
     last_denoised_video: torch.Tensor | None = None,
     last_denoised_audio: torch.Tensor | None = None,
+    gpu_manager=None,
 ) -> DenoisingFunc:
+    #print(gpu_manager)
     def guider_denoising_step(
         video_state: LatentState, audio_state: LatentState, sigmas: torch.Tensor, step_index: int
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -386,7 +394,7 @@ def multi_modal_guider_denoising_func(
         )
 
         denoised_video, denoised_audio = transformer(
-            video=pos_video_modality, audio=pos_audio_modality, perturbations=None
+            video=pos_video_modality, audio=pos_audio_modality, perturbations=None,gpu_manager=gpu_manager
         )
         neg_denoised_video, neg_denoised_audio = 0.0, 0.0
         if video_guider.do_unconditional_generation() or audio_guider.do_unconditional_generation():
@@ -410,7 +418,7 @@ def multi_modal_guider_denoising_func(
             )
 
             neg_denoised_video, neg_denoised_audio = transformer(
-                video=neg_video_modality, audio=neg_audio_modality, perturbations=None
+                video=neg_video_modality, audio=neg_audio_modality, perturbations=None,gpu_manager=gpu_manager
             )
 
         ptb_denoised_video, ptb_denoised_audio = 0.0, 0.0
@@ -428,7 +436,7 @@ def multi_modal_guider_denoising_func(
             ptb_denoised_video, ptb_denoised_audio = transformer(
                 video=pos_video_modality,
                 audio=pos_audio_modality,
-                perturbations=BatchedPerturbationConfig(perturbations=[perturbation_config]),
+                perturbations=BatchedPerturbationConfig(perturbations=[perturbation_config]),gpu_manager=gpu_manager,
             )
 
         mod_denoised_video, mod_denoised_audio = 0.0, 0.0
@@ -441,7 +449,7 @@ def multi_modal_guider_denoising_func(
             mod_denoised_video, mod_denoised_audio = transformer(
                 video=pos_video_modality,
                 audio=pos_audio_modality,
-                perturbations=BatchedPerturbationConfig(perturbations=[perturbation_config]),
+                perturbations=BatchedPerturbationConfig(perturbations=[perturbation_config]),gpu_manager=gpu_manager,
             )
 
         if video_guider.should_skip_step(step_index):
@@ -472,6 +480,8 @@ def multi_modal_guider_factory_denoising_func(
     v_context: torch.Tensor,
     a_context: torch.Tensor,
     transformer: X0Model,
+    gpu_manager=None,
+
 ) -> DenoisingFunc:
     """Resolve guiders per step via factory.build_from_sigma, then multi_modal_guider_denoising_func."""
     last_denoised_video: torch.Tensor | None = None
@@ -495,6 +505,8 @@ def multi_modal_guider_factory_denoising_func(
             transformer,
             last_denoised_video=last_denoised_video,
             last_denoised_audio=last_denoised_audio,
+            gpu_manager=gpu_manager,
+
         )
         denoised_video, denoised_audio = denoise_fn(video_state, audio_state, sigmas, step_index)
         last_denoised_video, last_denoised_audio = denoised_video, denoised_audio
@@ -516,7 +528,6 @@ def denoise_audio_video(  # noqa: PLR0913
     noise_scale: float = 1.0,
     initial_video_latent: torch.Tensor | None = None,
     initial_audio_latent: torch.Tensor | None = None,
-    gpu_manager=None,
 ) -> tuple[LatentState, LatentState]:
     video_state, video_tools = noise_video_state(
         output_shape=output_shape,

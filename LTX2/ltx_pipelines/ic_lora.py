@@ -9,7 +9,7 @@ from ..ltx_core.components.protocols import DiffusionStepProtocol
 from ..ltx_core.conditioning import ConditioningItem, VideoConditionByKeyframeIndex
 from ..ltx_core.loader import LoraPathStrengthAndSDOps
 from ..ltx_core.model.video_vae import TilingConfig, VideoEncoder, get_video_chunks_number
-
+from ..ltx_core.quantization import QuantizationPolicy
 from ..ltx_core.types import Audio, LatentState, VideoLatentShape, VideoPixelShape
 from ..ltx_pipelines.utils import (
     ModelLedger,
@@ -20,23 +20,8 @@ from ..ltx_pipelines.utils import (
     encode_prompts,
     euler_denoising_loop,
     get_device,
-    simple_denoising_func,
-    )
-from ..ltx_pipelines.utils.args import (
-    ImageConditioningInput,
-    VideoConditioningAction,
-    VideoMaskConditioningAction,
-    default_2_stage_distilled_arg_parser,
-    detect_checkpoint_path,
-)
+    simple_denoising_func,)
 
-from .utils.args import (
-    ImageConditioningInput,
-    VideoConditioningAction,
-    VideoMaskConditioningAction,
-    default_2_stage_distilled_arg_parser,
-    detect_checkpoint_path,
-)
 from .utils.constants import (
     DISTILLED_SIGMA_VALUES,
     STAGE_2_DISTILLED_SIGMA_VALUES,
@@ -69,7 +54,7 @@ class ICLoraPipeline:
         gemma_root: str,
         loras: list[LoraPathStrengthAndSDOps],
         device = "cpu",
-        fp8transformer: bool = False,
+        quantization: QuantizationPolicy | None = None,
         gguf_dit: bool = False,
     ):
         self.dtype = torch.bfloat16
@@ -80,7 +65,7 @@ class ICLoraPipeline:
             spatial_upsampler_path=spatial_upsampler_path,
             gemma_root_path=gemma_root,
             loras=loras,
-            fp8transformer=fp8transformer,
+            quantization=quantization,
             gguf_dit=gguf_dit,
             load_mode= "dit",
         )
@@ -91,7 +76,7 @@ class ICLoraPipeline:
             spatial_upsampler_path=spatial_upsampler_path,
             gemma_root_path=gemma_root,
             loras=[],
-            fp8transformer=fp8transformer,
+            quantization=quantization,
             gguf_dit=gguf_dit,
             load_mode= "dit",
         )
@@ -140,11 +125,6 @@ class ICLoraPipeline:
 
         # text_encoder = self.stage_1_model_ledger.text_encoder()
         v_context_p, a_context_p = context_p
-        # if enhance_prompt:
-        #     prompt = generate_enhanced_prompt(
-        #         text_encoder, prompt, images[0][0] if len(images) > 0 else None, seed=seed
-        #     )
-        # video_context, audio_context = encode_text(text_encoder, prompts=[prompt])[0]
 
         torch.cuda.synchronize()
         #del text_encoder
@@ -158,9 +138,6 @@ class ICLoraPipeline:
             else:
                 gpu_manager = None
         
-            # Stage 1: Initial low resolution video generation.
-            #video_encoder = self.stage_1_model_ledger.video_encoder()
-            #transformer = self.stage_1_model_ledger.transformer()
             stage_1_sigmas = torch.Tensor(DISTILLED_SIGMA_VALUES).to(cur_device)
 
             def first_stage_denoising_loop(
@@ -181,24 +158,9 @@ class ICLoraPipeline:
                 )
             
 
-            stage_1_output_shape = VideoPixelShape(
-                batch=1,
-                frames=num_frames,
-                width=width // 2,
-                height=height // 2,
-                fps=frame_rate,
-            )
-            # stage_1_conditionings = self._create_conditionings(
-            #     images=images,
-            #     video_conditioning=video_conditioning,
-            #     height=stage_1_output_shape.height,
-            #     width=stage_1_output_shape.width,
-            #     video_encoder=video_encoder,
-            #     num_frames=num_frames,
-            #)
             video_state, audio_state = denoise_audio_video(
-                output_shape=stage_1_output_shape,
-                conditionings=images[1] if images else [],
+                output_shape=images["stage_1_output_shape"],
+                conditionings=images["stage_1_conditionings"],
                 noiser=noiser,
                 sigmas=stage_1_sigmas,
                 stepper=stepper,
@@ -249,19 +211,9 @@ class ICLoraPipeline:
                     gpu_manager=gpu_manager,
                 )
 
-            stage_2_output_shape = VideoPixelShape(batch=1, frames=num_frames, width=width, height=height, fps=frame_rate)
-            # stage_2_conditionings = image_conditionings_by_replacing_latent(
-            #     images=images,
-            #     height=stage_2_output_shape.height,
-            #     width=stage_2_output_shape.width,
-            #     video_encoder=video_encoder,
-            #     dtype=self.dtype,
-            #     device=cur_device,
-            # )
-
             video_state, audio_state = denoise_audio_video(
-                output_shape=stage_2_output_shape,
-                conditionings=images[0] if images else [],
+                output_shape=images["stage_2_output_shape"],
+                conditionings=images["stage_2_conditionings"],
                 noiser=noiser,
                 sigmas=distilled_sigmas,
                 stepper=stepper,
@@ -370,7 +322,7 @@ def load_pipeline_ICLora_ltx(
     gemma_root: str,
     loras: list[str],
     device: str = "cpu",
-    fp8transformer: bool=False,
+    quantization: QuantizationPolicy | None = None,
     gguf_dit=False,
 ) -> ICLoraPipeline:  
     pipeline = ICLoraPipeline(
@@ -380,7 +332,7 @@ def load_pipeline_ICLora_ltx(
         gemma_root=gemma_root,
         loras=loras,
         device=device,
-        fp8transformer=fp8transformer,
+        quantization=quantization,
         gguf_dit=gguf_dit,
     )
     pipeline.load_dit() #check it
@@ -391,30 +343,26 @@ def inference_ltx_ICLora(
     pipeline,
     context_p,
     context_n,
+    latents,
     seed: int,
-    height: int,
-    width: int,
-    num_frames: int,
-    frame_rate: int,
-    num_inference_steps: int,
+    num_inference_steps,
     cfg_guidance_scale: float,
-    images: str,
     offload=True,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    
+    num_frames = latents["num_frames"]
     tiling_config = TilingConfig.default()
     video_chunks_number = get_video_chunks_number(num_frames, tiling_config)
     video, audio = pipeline(
         prompt=None,
         negative_prompt=None,
         seed=seed,
-        height=height,
-        width=width,
+        height=latents["height"],
+        width=latents["width"],
         num_frames=num_frames,
-        frame_rate=frame_rate,
+        frame_rate=latents["frame_rate"],
         num_inference_steps=num_inference_steps,
         cfg_guidance_scale=cfg_guidance_scale,
-        images=images,
+        images=latents,
         tiling_config=tiling_config,
         context_p=context_p,
         offload=offload,
@@ -422,48 +370,3 @@ def inference_ltx_ICLora(
     return video, audio
 
 
-# @torch.inference_mode()
-# def main() -> None:
-#     logging.getLogger().setLevel(logging.INFO)
-#     parser = default_2_stage_distilled_arg_parser()
-#     parser.add_argument(
-#         "--video-conditioning",
-#         action=VideoConditioningAction,
-#         nargs=2,
-#         metavar=("PATH", "STRENGTH"),
-#         required=True,
-#     )
-#     args = parser.parse_args()
-#     pipeline = ICLoraPipeline(
-#         checkpoint_path=args.checkpoint_path,
-#         spatial_upsampler_path=args.spatial_upsampler_path,
-#         gemma_root=args.gemma_root,
-#         loras=args.lora,
-#         fp8transformer=args.enable_fp8,
-#     )
-#     tiling_config = TilingConfig.default()
-#     video_chunks_number = get_video_chunks_number(args.num_frames, tiling_config)
-#     video, audio = pipeline(
-#         prompt=args.prompt,
-#         seed=args.seed,
-#         height=args.height,
-#         width=args.width,
-#         num_frames=args.num_frames,
-#         frame_rate=args.frame_rate,
-#         images=args.images,
-#         video_conditioning=args.video_conditioning,
-#         tiling_config=tiling_config,
-#     )
-
-#     encode_video(
-#         video=video,
-#         fps=args.frame_rate,
-#         audio=audio,
-#         audio_sample_rate=AUDIO_SAMPLE_RATE,
-#         output_path=args.output_path,
-#         video_chunks_number=video_chunks_number,
-#     )
-
-
-# if __name__ == "__main__":
-#     main()

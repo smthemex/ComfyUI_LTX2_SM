@@ -45,9 +45,15 @@ class GemmaTextEncoder(torch.nn.Module):
             (hidden_states, attention_mask) where hidden_states is a tuple of per-layer tensors.
         """
         token_pairs = self.tokenizer.tokenize_with_weights(text)["gemma"]
-        input_ids = torch.tensor([[t[0] for t in token_pairs]], device=self.model.device)
-        attention_mask = torch.tensor([[w[1] for w in token_pairs]], device=self.model.device)
+
+        inf_device = torch.device("cuda")
+        if self.model.device==torch.device("cpu"):
+            self.model.to(inf_device)
+        input_ids = torch.tensor([[t[0] for t in token_pairs]], device=inf_device) #self.model.device
+        attention_mask = torch.tensor([[w[1] for w in token_pairs]], device=inf_device) #self.model.device
         outputs = self.model.model(input_ids=input_ids, attention_mask=attention_mask, output_hidden_states=True)
+        self.model.to("cpu")
+        torch.cuda.empty_cache()
         hidden_states = outputs.hidden_states
         del outputs
         return hidden_states, attention_mask
@@ -587,35 +593,9 @@ def _pad_inputs_for_attention_alignment(
 
 #     return model_inputs
 
-def module_ops_from_gemma_root(gemma_root: str,clip_path="") -> tuple[ModuleOps, ...]:
-    tokenizer_root = str(find_matching_file(gemma_root, "tokenizer.model").parent)
-    processor_root = str(find_matching_file(gemma_root, "preprocessor_config.json").parent)
-
-    def load_tokenizer(module: GemmaTextEncoder) -> GemmaTextEncoder:
-        module.tokenizer = LTXVGemmaTokenizer(tokenizer_root, 1024)
-        return module
-
-    def load_processor(module: GemmaTextEncoder) -> GemmaTextEncoder:
-        image_processor = AutoImageProcessor.from_pretrained(processor_root, local_files_only=True)
-        if not module.tokenizer:
-            raise ValueError("Tokenizer model operation must be performed before processor model operation")
-        module.processor = Gemma3Processor(image_processor=image_processor, tokenizer=module.tokenizer.tokenizer)
-        return module
-
-    tokenizer_load_ops = ModuleOps(
-        "TokenizerLoad",
-        matcher=lambda module: isinstance(module, GemmaTextEncoder) and module.tokenizer is None,
-        mutator=load_tokenizer,
-    )
-    processor_load_ops = ModuleOps(
-        "ProcessorLoad",
-        matcher=lambda module: isinstance(module, GemmaTextEncoder) and module.processor is None,
-        mutator=load_processor,
-    )
-    return (tokenizer_load_ops, processor_load_ops)
 
 
-def module_ops_from_gemma_root_(gemma_root: str) -> tuple[ModuleOps, ...]:
+def module_ops_from_gemma_root(gemma_root: str) -> tuple[ModuleOps, ...]:
     tokenizer_root = str(find_matching_file(gemma_root, "tokenizer.model").parent)
     processor_root = str(find_matching_file(gemma_root, "preprocessor_config.json").parent)
 

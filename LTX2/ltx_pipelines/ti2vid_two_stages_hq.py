@@ -3,20 +3,20 @@ from collections.abc import Iterator
 
 import torch
 
-from ltx_core.components.diffusion_steps import Res2sDiffusionStep
-from ltx_core.components.guiders import MultiModalGuider, MultiModalGuiderParams
-from ltx_core.components.noisers import GaussianNoiser
-from ltx_core.components.protocols import DiffusionStepProtocol
-from ltx_core.components.schedulers import LTX2Scheduler
-from ltx_core.loader import LoraPathStrengthAndSDOps
-from ltx_core.model.audio_vae import decode_audio as vae_decode_audio
-from ltx_core.model.upsampler import upsample_video
-from ltx_core.model.video_vae import TilingConfig, get_video_chunks_number
-from ltx_core.model.video_vae import decode_video as vae_decode_video
-from ltx_core.quantization import QuantizationPolicy
-from ltx_core.tools import VideoLatentShape
-from ltx_core.types import Audio, LatentState, VideoPixelShape
-from ltx_pipelines.utils import (
+from ..ltx_core.components.diffusion_steps import Res2sDiffusionStep
+from ..ltx_core.components.guiders import MultiModalGuider, MultiModalGuiderParams
+from ..ltx_core.components.noisers import GaussianNoiser
+from ..ltx_core.components.protocols import DiffusionStepProtocol
+from ..ltx_core.components.schedulers import LTX2Scheduler
+from ..ltx_core.loader import LoraPathStrengthAndSDOps
+from ..ltx_core.model.audio_vae import decode_audio as vae_decode_audio
+from ..ltx_core.model.upsampler import upsample_video
+from ..ltx_core.model.video_vae import TilingConfig, get_video_chunks_number
+from ..ltx_core.model.video_vae import decode_video as vae_decode_video
+from ..ltx_core.quantization import QuantizationPolicy
+from ..ltx_core.tools import VideoLatentShape
+from ..ltx_core.types import Audio, LatentState, VideoPixelShape
+from .utils import (
     ModelLedger,
     assert_resolution,
     cleanup_memory,
@@ -28,10 +28,10 @@ from ltx_pipelines.utils import (
     res2s_audio_video_denoising_loop,
     simple_denoising_func,
 )
-from ltx_pipelines.utils.args import ImageConditioningInput, hq_2_stage_arg_parser
-from ltx_pipelines.utils.constants import LTX_2_3_HQ_PARAMS, STAGE_2_DISTILLED_SIGMA_VALUES
-from ltx_pipelines.utils.media_io import encode_video
-from ltx_pipelines.utils.types import PipelineComponents
+from .utils.args import ImageConditioningInput, hq_2_stage_arg_parser
+from .utils.constants import LTX_2_3_HQ_PARAMS, STAGE_2_DISTILLED_SIGMA_VALUES
+from .utils.media_io import encode_video
+from .utils.types import PipelineComponents
 
 device = get_device()
 
@@ -317,5 +317,5 @@ def main() -> None:
     )
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
