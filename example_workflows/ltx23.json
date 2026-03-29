@@ -1,8 +1,8 @@
 {
   "id": "19b12b90-3e37-4a3d-90c3-44b46f727c25",
   "revision": 0,
-  "last_node_id": 175,
-  "last_link_id": 342,
+  "last_node_id": 177,
+  "last_link_id": 349,
   "nodes": [
     {
       "id": 14,
@@ -640,7 +640,7 @@
       ],
       "size": [
         312.341796875,
-        526
+        550
       ],
       "flags": {},
       "order": 52,
@@ -690,7 +690,7 @@
       },
       "widgets_values": [
         8,
-        896657533,
+        896657542,
         "increment",
         1,
         0,
@@ -706,6 +706,7 @@
         -1,
         true,
         true,
+        false,
         false
       ]
     },
@@ -1153,35 +1154,6 @@
       ]
     },
     {
-      "id": 9,
-      "type": "SaveVideo",
-      "pos": [
-        1919.4200458742775,
-        3531.4743495333823
-      ],
-      "size": [
-        691.0216190664546,
-        528.0355267547197
-      ],
-      "flags": {},
-      "order": 61,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "video",
-          "type": "VIDEO",
-          "link": 18
-        }
-      ],
-      "outputs": [],
-      "properties": {},
-      "widgets_values": [
-        "video/ComfyUI",
-        "auto",
-        "auto"
-      ]
-    },
-    {
       "id": 142,
       "type": "SaveVideo",
       "pos": [
@@ -1219,7 +1191,7 @@
       ],
       "size": [
         312.341796875,
-        526
+        550
       ],
       "flags": {},
       "order": 44,
@@ -1285,6 +1257,7 @@
         -1,
         true,
         true,
+        false,
         false
       ]
     },
@@ -1348,49 +1321,6 @@
       ]
     },
     {
-      "id": 8,
-      "type": "CreateVideo",
-      "pos": [
-        2191.1511788968055,
-        3408.787724484726
-      ],
-      "size": [
-        270,
-        78
-      ],
-      "flags": {},
-      "order": 54,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 288
-        },
-        {
-          "name": "audio",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": 213
-        }
-      ],
-      "outputs": [
-        {
-          "name": "VIDEO",
-          "type": "VIDEO",
-          "links": [
-            18
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "CreateVideo"
-      },
-      "widgets_values": [
-        24
-      ]
-    },
-    {
       "id": 101,
       "type": "LTX2_DECO_AUDIO",
       "pos": [
@@ -1402,8 +1332,8 @@
         46
       ],
       "flags": {},
-      "order": 46,
-      "mode": 2,
+      "order": 51,
+      "mode": 0,
       "inputs": [
         {
           "name": "audio_vae",
@@ -1413,7 +1343,7 @@
         {
           "name": "audio_latents",
           "type": "LATENT",
-          "link": 313
+          "link": 346
         }
       ],
       "outputs": [
@@ -1485,7 +1415,7 @@
         302
       ],
       "flags": {},
-      "order": 47,
+      "order": 45,
       "mode": 2,
       "inputs": [
         {
@@ -1556,10 +1486,10 @@
       ],
       "size": [
         312.341796875,
-        526
+        550
       ],
       "flags": {},
-      "order": 55,
+      "order": 54,
       "mode": 2,
       "inputs": [
         {
@@ -1606,7 +1536,7 @@
       },
       "widgets_values": [
         8,
-        1391545502,
+        1512488288,
         "randomize",
         1,
         0,
@@ -1622,6 +1552,7 @@
         -1,
         true,
         true,
+        false,
         false
       ]
     },
@@ -1637,7 +1568,7 @@
         46
       ],
       "flags": {},
-      "order": 63,
+      "order": 62,
       "mode": 2,
       "inputs": [
         {
@@ -1708,7 +1639,7 @@
         102
       ],
       "flags": {},
-      "order": 62,
+      "order": 61,
       "mode": 2,
       "inputs": [
         {
@@ -1915,41 +1846,6 @@
       ]
     },
     {
-      "id": 5,
-      "type": "LTX2_SM_Model",
-      "pos": [
-        998.8066385941044,
-        3152.047035535486
-      ],
-      "size": [
-        215.2029830099532,
-        188.76761362462457
-      ],
-      "flags": {},
-      "order": 17,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "links": [
-            310
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_Model"
-      },
-      "widgets_values": [
-        "none",
-        "ltx23-transformer-Q8_0.gguf",
-        "none",
-        "none",
-        "one_stage"
-      ]
-    },
-    {
       "id": 102,
       "type": "LTX2_LATENTS",
       "pos": [
@@ -1961,8 +1857,8 @@
         302
       ],
       "flags": {},
-      "order": 18,
-      "mode": 2,
+      "order": 17,
+      "mode": 0,
       "inputs": [
         {
           "name": "vae",
@@ -2006,7 +1902,7 @@
           "name": "latent",
           "type": "LATENT",
           "links": [
-            311
+            348
           ]
         }
       ],
@@ -2024,84 +1920,6 @@
       ]
     },
     {
-      "id": 153,
-      "type": "LTX2_SM_KSampler",
-      "pos": [
-        1289.7672133757535,
-        3218.467452796049
-      ],
-      "size": [
-        312.341796875,
-        526
-      ],
-      "flags": {},
-      "order": 36,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 310
-        },
-        {
-          "name": "latents",
-          "type": "LATENT",
-          "link": 311
-        },
-        {
-          "name": "positive",
-          "shape": 7,
-          "type": "CONDITIONING",
-          "link": null
-        },
-        {
-          "name": "negative",
-          "shape": 7,
-          "type": "CONDITIONING",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            312
-          ]
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "links": [
-            313
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_KSampler"
-      },
-      "widgets_values": [
-        8,
-        470767425,
-        "randomize",
-        1,
-        0,
-        0,
-        1,
-        0,
-        -1,
-        1,
-        0,
-        0,
-        1,
-        0,
-        -1,
-        true,
-        true,
-        false
-      ]
-    },
-    {
       "id": 10,
       "type": "LTX2_SM_AUDIO_VAE",
       "pos": [
@@ -2113,8 +1931,8 @@
         82
       ],
       "flags": {},
-      "order": 19,
-      "mode": 2,
+      "order": 18,
+      "mode": 0,
       "inputs": [],
       "outputs": [
         {
@@ -2144,8 +1962,8 @@
         58
       ],
       "flags": {},
-      "order": 20,
-      "mode": 2,
+      "order": 19,
+      "mode": 0,
       "inputs": [],
       "outputs": [
         {
@@ -2175,8 +1993,8 @@
         102
       ],
       "flags": {},
-      "order": 45,
-      "mode": 2,
+      "order": 50,
+      "mode": 0,
       "inputs": [
         {
           "name": "vae",
@@ -2186,7 +2004,7 @@
         {
           "name": "latent",
           "type": "LATENT",
-          "link": 312
+          "link": 347
         }
       ],
       "outputs": [
@@ -2223,7 +2041,7 @@
         66
       ],
       "flags": {},
-      "order": 37,
+      "order": 36,
       "mode": 2,
       "inputs": [
         {
@@ -2269,7 +2087,7 @@
         923.7777777777778
       ],
       "flags": {},
-      "order": 21,
+      "order": 20,
       "mode": 2,
       "inputs": [],
       "outputs": [
@@ -2301,7 +2119,7 @@
         66
       ],
       "flags": {},
-      "order": 48,
+      "order": 46,
       "mode": 2,
       "inputs": [
         {
@@ -2344,7 +2162,7 @@
         302
       ],
       "flags": {},
-      "order": 38,
+      "order": 37,
       "mode": 2,
       "inputs": [
         {
@@ -2418,7 +2236,7 @@
         178
       ],
       "flags": {},
-      "order": 22,
+      "order": 21,
       "mode": 2,
       "inputs": [],
       "outputs": [
@@ -2454,7 +2272,7 @@
         58
       ],
       "flags": {},
-      "order": 23,
+      "order": 22,
       "mode": 2,
       "inputs": [],
       "outputs": [
@@ -2487,7 +2305,7 @@
         76.98565120695866
       ],
       "flags": {},
-      "order": 24,
+      "order": 23,
       "mode": 2,
       "inputs": [],
       "outputs": [
@@ -2518,7 +2336,7 @@
         102
       ],
       "flags": {},
-      "order": 56,
+      "order": 55,
       "mode": 2,
       "inputs": [
         {
@@ -2614,7 +2432,7 @@
         66
       ],
       "flags": {},
-      "order": 64,
+      "order": 63,
       "mode": 2,
       "inputs": [
         {
@@ -2778,7 +2596,7 @@
         76.98565120695866
       ],
       "flags": {},
-      "order": 25,
+      "order": 24,
       "mode": 2,
       "inputs": [],
       "outputs": [
@@ -2809,7 +2627,7 @@
         102
       ],
       "flags": {},
-      "order": 50,
+      "order": 48,
       "mode": 2,
       "inputs": [
         {
@@ -2857,7 +2675,7 @@
         102
       ],
       "flags": {},
-      "order": 65,
+      "order": 64,
       "mode": 2,
       "inputs": [
         {
@@ -2905,7 +2723,7 @@
         66
       ],
       "flags": {},
-      "order": 57,
+      "order": 56,
       "mode": 2,
       "inputs": [
         {
@@ -3029,7 +2847,7 @@
         58
       ],
       "flags": {},
-      "order": 26,
+      "order": 25,
       "mode": 2,
       "inputs": [],
       "outputs": [
@@ -3061,7 +2879,7 @@
         178
       ],
       "flags": {},
-      "order": 27,
+      "order": 26,
       "mode": 2,
       "inputs": [],
       "outputs": [
@@ -3094,10 +2912,10 @@
       ],
       "size": [
         312.341796875,
-        526
+        550
       ],
       "flags": {},
-      "order": 49,
+      "order": 47,
       "mode": 2,
       "inputs": [
         {
@@ -3160,6 +2978,7 @@
         -1,
         true,
         false,
+        false,
         false
       ]
     },
@@ -3172,10 +2991,10 @@
       ],
       "size": [
         312.341796875,
-        526
+        550
       ],
       "flags": {},
-      "order": 39,
+      "order": 38,
       "mode": 2,
       "inputs": [
         {
@@ -3238,6 +3057,7 @@
         -1,
         true,
         true,
+        false,
         false
       ]
     },
@@ -3253,7 +3073,7 @@
         46
       ],
       "flags": {},
-      "order": 66,
+      "order": 65,
       "mode": 2,
       "inputs": [
         {
@@ -3293,7 +3113,7 @@
         302
       ],
       "flags": {},
-      "order": 28,
+      "order": 27,
       "mode": 2,
       "inputs": [
         {
@@ -3367,8 +3187,8 @@
         76.98565120695866
       ],
       "flags": {},
-      "order": 29,
-      "mode": 0,
+      "order": 28,
+      "mode": 2,
       "inputs": [],
       "outputs": [
         {
@@ -3398,8 +3218,8 @@
         102
       ],
       "flags": {},
-      "order": 51,
-      "mode": 0,
+      "order": 49,
+      "mode": 2,
       "inputs": [
         {
           "name": "vae",
@@ -3446,8 +3266,8 @@
         102
       ],
       "flags": {},
-      "order": 67,
-      "mode": 0,
+      "order": 66,
+      "mode": 2,
       "inputs": [
         {
           "name": "vae",
@@ -3494,8 +3314,8 @@
         66
       ],
       "flags": {},
-      "order": 58,
-      "mode": 0,
+      "order": 57,
+      "mode": 2,
       "inputs": [
         {
           "name": "model",
@@ -3547,7 +3367,7 @@
       ],
       "flags": {},
       "order": 75,
-      "mode": 0,
+      "mode": 2,
       "inputs": [
         {
           "name": "images",
@@ -3590,7 +3410,7 @@
       ],
       "flags": {},
       "order": 82,
-      "mode": 0,
+      "mode": 2,
       "inputs": [
         {
           "name": "video",
@@ -3618,8 +3438,8 @@
         58
       ],
       "flags": {},
-      "order": 30,
-      "mode": 0,
+      "order": 29,
+      "mode": 2,
       "inputs": [],
       "outputs": [
         {
@@ -3647,11 +3467,11 @@
       ],
       "size": [
         312.341796875,
-        526
+        550
       ],
       "flags": {},
-      "order": 40,
-      "mode": 0,
+      "order": 39,
+      "mode": 2,
       "inputs": [
         {
           "name": "model",
@@ -3713,6 +3533,7 @@
         -1,
         true,
         true,
+        false,
         false
       ]
     },
@@ -3728,8 +3549,8 @@
         46
       ],
       "flags": {},
-      "order": 68,
-      "mode": 0,
+      "order": 67,
+      "mode": 2,
       "inputs": [
         {
           "name": "audio_vae",
@@ -3768,8 +3589,8 @@
         302
       ],
       "flags": {},
-      "order": 31,
-      "mode": 0,
+      "order": 30,
+      "mode": 2,
       "inputs": [
         {
           "name": "vae",
@@ -3842,8 +3663,8 @@
         178
       ],
       "flags": {},
-      "order": 32,
-      "mode": 0,
+      "order": 31,
+      "mode": 2,
       "inputs": [],
       "outputs": [
         {
@@ -3864,6 +3685,192 @@
         "none",
         "none",
         "twostages_hq"
+      ]
+    },
+    {
+      "id": 9,
+      "type": "SaveVideo",
+      "pos": [
+        1919.4200458742775,
+        3518.5966100364767
+      ],
+      "size": [
+        691.0216190664546,
+        558.6810793776365
+      ],
+      "flags": {},
+      "order": 68,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 18
+        }
+      ],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "video/ComfyUI",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 8,
+      "type": "CreateVideo",
+      "pos": [
+        2199.0759765455805,
+        3343.408408399984
+      ],
+      "size": [
+        270,
+        78
+      ],
+      "flags": {},
+      "order": 58,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 288
+        },
+        {
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": 213
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            18
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateVideo"
+      },
+      "widgets_values": [
+        24
+      ]
+    },
+    {
+      "id": 176,
+      "type": "LTX2_SM_Model",
+      "pos": [
+        901.8749396399621,
+        3158.3194157728085
+      ],
+      "size": [
+        270,
+        154
+      ],
+      "flags": {},
+      "order": 32,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "links": [
+            349
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LTX2_SM_Model"
+      },
+      "widgets_values": [
+        "none",
+        "ltx23-transformer-distill-Q8_0.gguf",
+        "none",
+        "none",
+        "one_stage"
+      ]
+    },
+    {
+      "id": 177,
+      "type": "LTX2_SM_KSampler",
+      "pos": [
+        1292.7563875315839,
+        3190.3233763919466
+      ],
+      "size": [
+        312.341796875,
+        550
+      ],
+      "flags": {},
+      "order": 40,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 349
+        },
+        {
+          "name": "latents",
+          "type": "LATENT",
+          "link": 348
+        },
+        {
+          "name": "positive",
+          "shape": 7,
+          "type": "CONDITIONING",
+          "link": null
+        },
+        {
+          "name": "negative",
+          "shape": 7,
+          "type": "CONDITIONING",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "links": [
+            347
+          ]
+        },
+        {
+          "name": "audio_latents",
+          "type": "LATENT",
+          "links": [
+            346
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LTX2_SM_KSampler"
+      },
+      "widgets_values": [
+        8,
+        632689289,
+        "randomize",
+        1,
+        0,
+        0,
+        1,
+        0,
+        -1,
+        1,
+        0,
+        0,
+        1,
+        0,
+        -1,
+        true,
+        8,
+        true,
+        false
       ]
     }
   ],
@@ -4469,38 +4476,6 @@
       "VAE"
     ],
     [
-      310,
-      5,
-      0,
-      153,
-      0,
-      "MODEL"
-    ],
-    [
-      311,
-      102,
-      0,
-      153,
-      1,
-      "LATENT"
-    ],
-    [
-      312,
-      153,
-      0,
-      149,
-      1,
-      "LATENT"
-    ],
-    [
-      313,
-      153,
-      1,
-      101,
-      1,
-      "LATENT"
-    ],
-    [
       315,
       155,
       0,
@@ -4723,6 +4698,38 @@
       174,
       1,
       "LATENT"
+    ],
+    [
+      346,
+      177,
+      1,
+      101,
+      1,
+      "LATENT"
+    ],
+    [
+      347,
+      177,
+      0,
+      149,
+      1,
+      "LATENT"
+    ],
+    [
+      348,
+      102,
+      0,
+      177,
+      1,
+      "LATENT"
+    ],
+    [
+      349,
+      176,
+      0,
+      177,
+      0,
+      "MODEL"
     ]
   ],
   "groups": [
@@ -4834,14 +4841,14 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.12935380399265214,
+      "scale": 0.7341769809963148,
       "offset": [
-        3865.8756066632372,
-        -513.5648027024902
+        -465.3712591105975,
+        -2969.83807993613
       ]
     },
     "workflowRendererVersion": "LG",
-    "frontendVersion": "1.39.19",
+    "frontendVersion": "1.41.21",
     "VHS_latentpreview": false,
     "VHS_latentpreviewrate": 0,
     "VHS_MetadataImage": true,
