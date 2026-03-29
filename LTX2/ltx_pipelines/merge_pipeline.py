@@ -261,6 +261,7 @@ class OmniPipeline:
         video_conditioning: list[tuple[str, float]]=[],
         conditioning_attention_strength: float = 1.0,
         conditioning_attention_mask: torch.Tensor | None = None,
+        block_group_size=2,
 
     ) -> tuple[Iterator[torch.Tensor], torch.Tensor]:
         #assert_resolution(height=height, width=width, is_two_stage=True)
@@ -285,7 +286,7 @@ class OmniPipeline:
         
         if offload:
             from ..ltx_core.model.transformer.model import BlockGPUManager         
-            gpu_manager = BlockGPUManager(device="cuda",)
+            gpu_manager = BlockGPUManager(device="cuda",block_group_size=block_group_size)
             gpu_manager.setup_for_inference(self.transformer1.velocity_model)
         else:
             gpu_manager = None
@@ -508,7 +509,7 @@ class OmniPipeline:
             if not self.infer_mode=="distilled" :
                 if offload:
                     from ..ltx_core.model.transformer.model import BlockGPUManager         
-                    gpu_manager = BlockGPUManager(device="cuda",)
+                    gpu_manager = BlockGPUManager(device="cuda",block_group_size=block_group_size)
                     gpu_manager.setup_for_inference(self.transformer2.velocity_model)
                 else:
                     gpu_manager = None

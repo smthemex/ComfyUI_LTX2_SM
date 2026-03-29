@@ -245,6 +245,7 @@ class LTX2_SM_KSampler(io.ComfyNode):
                 io.Int.Input("audio_skip_step", default=0, min=0, max=100,step=1,display_mode=io.NumberDisplay.number),
                 io.Int.Input("audio_stg_blocks", default=-1, min=-1, max=48,step=1,display_mode=io.NumberDisplay.number),
                 io.Boolean.Input("offload", default=True),
+                io.Int.Input("block_group_size", default=2, min=1, max=48,step=1,display_mode=io.NumberDisplay.number),
                 io.Boolean.Input("save_latents", default=True),
                 io.Boolean.Input("pass_stage1", default=False),
                 io.Conditioning.Input("positive",optional=True),
@@ -259,7 +260,7 @@ class LTX2_SM_KSampler(io.ComfyNode):
     def execute(cls, model,latents,steps,seed,video_cfg_guidance_scale,video_stg_guidance_scale,
                 video_rescale_scale,a2v_guidance_scale,video_skip_step,video_stg_blocks,audio_cfg_guidance_scale,audio_stg_guidance_scale,
                 audio_rescale_scale,v2a_guidance_scale,audio_skip_step,audio_stg_blocks,
-                offload,save_latents,pass_stage1,positive=None,negative=None,) -> io.NodeOutput:
+                offload,block_group_size,save_latents,pass_stage1,positive=None,negative=None,) -> io.NodeOutput:
 
         if positive is None:
             positive,negative=read_lat_emb("embeds", positive, negative,device)
@@ -267,7 +268,6 @@ class LTX2_SM_KSampler(io.ComfyNode):
         if pass_stage1:
             video_latents,audio_latents=read_lat_emb("latents", positive, negative,device)
         else:
-
             cfg=dict(   
                 video_cfg_guidance_scale=video_cfg_guidance_scale,
                 video_stg_guidance_scale=video_stg_guidance_scale,
@@ -282,7 +282,7 @@ class LTX2_SM_KSampler(io.ComfyNode):
                 audio_skip_step=audio_skip_step,
                 audio_stg_blocks=audio_stg_blocks if audio_stg_blocks>=0 else [],
             )
-            video_latents, audio_latents=inference_ltx2(model, positive,negative,latents,seed, steps,cfg,offload)
+            video_latents, audio_latents=inference_ltx2(model, positive,negative,latents,seed, steps,cfg,offload,block_group_size)
             audio_latents["positives"]=positive
             audio_latents["negatives"]=negative
             audio_latents["args"]=cfg
@@ -302,6 +302,7 @@ class LTX2_SM_StageTwo(io.ComfyNode):
                 io.Model.Input("model"),      
                 io.Latent.Input("latents"), 
                 io.Latent.Input("audio_latents"),  
+                io.Int.Input("block_group_size", default=2, min=1, max=48,step=1,display_mode=io.NumberDisplay.number),
             ], 
             outputs=[
                 io.Latent.Output(display_name="latent"),
@@ -309,9 +310,9 @@ class LTX2_SM_StageTwo(io.ComfyNode):
             ],
         )
     @classmethod
-    def execute(cls, model,latents,audio_latents,) -> io.NodeOutput:
+    def execute(cls, model,latents,audio_latents,block_group_size) -> io.NodeOutput:
         clear_comfyui_cache()
-        video, audio=inference_stage2(model,latents,audio_latents)
+        video, audio=inference_stage2(model,latents,audio_latents,block_group_size)
         latents["samples"]=video
         audio_latents["samples"]= audio
         return io.NodeOutput(latents, audio_latents)

@@ -364,7 +364,7 @@ def encoder_audio(audio_vae,audio,num_frames,frame_rate,device,audio_start_time,
     return encoded_audio_latent,audio
 
 
-def inference_ltx2(model, positive,negative,latents,seed, steps,cfg,offload):
+def inference_ltx2(model, positive,negative,latents,seed, steps,cfg,offload,block_group_size):
 
     video_features_size = 4096 if positive[0][0].shape[2] == 6144 else 3840
     context_p=[positive[0][0][..., :video_features_size],positive[0][0][..., video_features_size:] ]
@@ -402,6 +402,7 @@ def inference_ltx2(model, positive,negative,latents,seed, steps,cfg,offload):
         context_p=context_p,
         context_n=context_n,
         offload=offload,
+        block_group_size=block_group_size,
     )
     
     video_latents={"samples": video}
@@ -410,7 +411,7 @@ def inference_ltx2(model, positive,negative,latents,seed, steps,cfg,offload):
     return  video_latents, audio_latents
 
 
-def inference_stage2(model,latents,audio_latents):
+def inference_stage2(model,latents,audio_latents,block_group_size=2):
     video_features_size = 4096 if audio_latents["positives"][0][0].shape[2] == 6144 else 3840
     context_p=[audio_latents["positives"][0][0][..., :video_features_size],audio_latents["positives"][0][0][..., video_features_size:] ]
 
@@ -451,6 +452,7 @@ def inference_stage2(model,latents,audio_latents):
         video_conditioning=[],
         conditioning_attention_strength = 1.0,
         conditioning_attention_mask= None,
+        block_group_size=block_group_size,
         )
 
     return video,audio

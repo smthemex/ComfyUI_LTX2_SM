@@ -2,6 +2,8 @@
  [LTX-2 ](https://github.com/Lightricks/LTX-2)is the first DiT-based audio-video foundation model that contains all core capabilities of modern video generation in one modelsynchronized audio and video, high fidelity, multiple performance modes, production-ready outputs, it's a test node.
 
 # Update
+* block 卸载块的数量外置，以压榨gpu最大性能，12G显存可开启8；
+
 * 插件已能正常运行官方的8个示例工作流，仅支持2.3模型，2.0模型请用2.0版本插件,测试环境12GVram 64G Ram Win11
 * The node can now properly run the 8 official example workflows, only supports the 2.3 model, for the 2.0 model please use the 2.0 version plugin, test environment: 12G VRAM, 64G RAM, Win11
 
