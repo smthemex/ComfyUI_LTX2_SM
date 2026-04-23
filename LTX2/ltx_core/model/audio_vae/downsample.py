@@ -2,9 +2,9 @@ from typing import Set, Tuple
 
 import torch
 
-from ..audio_vae.attention import AttentionType, make_attn
-from ..audio_vae.causality_axis import CausalityAxis
-from ..audio_vae.resnet import ResnetBlock
+from .attention import AttentionType, make_attn
+from .causality_axis import CausalityAxis
+from .resnet import ResnetBlock
 from ..common.normalization import NormType
 
 

@@ -46,9 +46,13 @@ class VideoToVideoStrategy(TrainingStrategy):
     - Reference latents (clean) are concatenated with target latents (noised)
     - Video coordinates handle both reference and target sequences
     - Loss is computed only on the target portion
+    Attributes:
+        reference_downscale_factor: The inferred downscale factor of reference videos.
+            This is computed from the first batch and cached for metadata export.
     """
 
     config: VideoToVideoConfig
+    reference_downscale_factor: int | None
 
     def __init__(self, config: VideoToVideoConfig):
         """Initialize strategy with configuration.
@@ -56,6 +60,7 @@ class VideoToVideoStrategy(TrainingStrategy):
             config: Video-to-video configuration
         """
         super().__init__(config)
+        self.reference_downscale_factor = None  # Will be inferred from first batch
 
     def get_data_sources(self) -> dict[str, str]:
         """IC-LoRA training requires latents, conditions, and reference latents."""
@@ -65,7 +70,7 @@ class VideoToVideoStrategy(TrainingStrategy):
             self.config.reference_latents_dir: "ref_latents",
         }
 
-    def prepare_training_inputs(
+    def prepare_training_inputs(  # noqa: PLR0915
         self,
         batch: dict[str, Any],
         timestep_sampler: TimestepSampler,
@@ -85,6 +90,26 @@ class VideoToVideoStrategy(TrainingStrategy):
         ref_frames = ref_latents_info["num_frames"][0].item()
         ref_height = ref_latents_info["height"][0].item()
         ref_width = ref_latents_info["width"][0].item()
+
+        # Infer reference downscale factor from dimension ratios
+        # This allows training with downscaled reference videos for efficiency
+        reference_downscale_factor = self._infer_reference_downscale_factor(
+            target_height=height,
+            target_width=width,
+            ref_height=ref_height,
+            ref_width=ref_width,
+        )
+
+        # Cache the scale factor for metadata export (only on first batch)
+        if self.reference_downscale_factor is None:
+            self.reference_downscale_factor = reference_downscale_factor
+        elif self.reference_downscale_factor != reference_downscale_factor:
+            raise ValueError(
+                f"Inconsistent reference downscale factor across batches. "
+                f"First batch had factor={self.reference_downscale_factor}, "
+                f"but current batch has factor={reference_downscale_factor}. "
+                f"All training samples must use the same reference/target resolution ratio."
+            )
 
         # Patchify latents: [B, C, F, H, W] -> [B, seq_len, C]
         target_latents = self._video_patchifier.patchify(target_latents)
@@ -159,6 +184,15 @@ class VideoToVideoStrategy(TrainingStrategy):
             dtype=dtype,
         )
 
+        # Scale reference positions to match target coordinate space
+        # This maps ref positions from (0, ref_H, ref_W) to (0, target_H, target_W)
+        # Position tensor shape: [B, 3, seq_len, 2] where dim 1 is (time, height, width)
+        if reference_downscale_factor != 1:
+            ref_positions = ref_positions.clone()
+            ref_positions[:, 1, ...] *= reference_downscale_factor  # height axis
+            ref_positions[:, 2, ...] *= reference_downscale_factor  # width axis
+            # Time axis (index 0) remains unchanged
+
         target_positions = self._get_video_positions(
             num_frames=num_frames,
             height=height,
@@ -176,6 +210,7 @@ class VideoToVideoStrategy(TrainingStrategy):
         video_modality = Modality(
             enabled=True,
             latent=combined_latents,
+            sigma=sigmas,
             timesteps=timesteps,
             positions=positions,
             context=prompt_embeds,
@@ -205,7 +240,7 @@ class VideoToVideoStrategy(TrainingStrategy):
         _audio_pred: Tensor | None,
         inputs: ModelInputs,
     ) -> Tensor:
-        """Compute masked loss only on target portion."""
+        """Compute masked loss only on target portion. Returns [B,]."""
         # Extract target portion of prediction
         ref_seq_len = inputs.ref_seq_len
         target_pred = video_pred[:, ref_seq_len:, :]
@@ -213,11 +248,53 @@ class VideoToVideoStrategy(TrainingStrategy):
         # Get target portion of loss mask
         target_loss_mask = inputs.video_loss_mask[:, ref_seq_len:]
 
-        # Compute loss
+        # Compute per-element loss [B,]
         loss = (target_pred - inputs.video_targets).pow(2)
-
-        # Apply loss mask
         loss_mask = target_loss_mask.unsqueeze(-1).float()
-        loss = loss.mul(loss_mask).div(loss_mask.mean())
+        masked = loss.mul(loss_mask)
+        return masked.mean(dim=[-2, -1]) / loss_mask.mean(dim=[-2, -1]).clamp(min=1e-8)
 
-        return loss.mean()
+    def get_checkpoint_metadata(self) -> dict[str, Any]:
+        """Get metadata for checkpoint files."""
+        metadata: dict[str, Any] = {}
+        # Always include reference_downscale_factor for IC-LoRAs so inference
+        # pipelines know the expected scale factor for reference videos.
+        if self.reference_downscale_factor is not None:
+            metadata["reference_downscale_factor"] = self.reference_downscale_factor
+        return metadata
+
+    @staticmethod
+    def _infer_reference_downscale_factor(
+        target_height: int,
+        target_width: int,
+        ref_height: int,
+        ref_width: int,
+    ) -> int:
+        """Infer the reference downscale factor from target and reference dimensions."""
+        # If dimensions match, no scaling needed
+        if target_height == ref_height and target_width == ref_width:
+            return 1
+
+        # Calculate scale factors for each dimension
+        if target_height % ref_height != 0 or target_width % ref_width != 0:
+            raise ValueError(
+                f"Target dimensions ({target_height}x{target_width}) must be exact multiples "
+                f"of reference dimensions ({ref_height}x{ref_width})"
+            )
+
+        scale_h = target_height // ref_height
+        scale_w = target_width // ref_width
+
+        if scale_h != scale_w:
+            raise ValueError(
+                f"Reference scale must be uniform. Got height scale {scale_h} and width scale {scale_w}. "
+                f"Target: {target_height}x{target_width}, Reference: {ref_height}x{ref_width}"
+            )
+
+        if scale_h < 1:
+            raise ValueError(
+                f"Reference dimensions ({ref_height}x{ref_width}) cannot be larger than "
+                f"target dimensions ({target_height}x{target_width})"
+            )
+
+        return scale_h

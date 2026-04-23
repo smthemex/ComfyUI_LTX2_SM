@@ -1,5 +1,5 @@
-from..model_protocol import ModelConfigurator
-from..upsampler.model import LatentUpsampler
+from ..model_protocol import ModelConfigurator
+from .model import LatentUpsampler
 
 
 class LatentUpsamplerConfigurator(ModelConfigurator[LatentUpsampler]):

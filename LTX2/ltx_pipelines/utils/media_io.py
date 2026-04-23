@@ -12,7 +12,7 @@ from PIL import Image
 from torch._prims_common import DeviceLikeType
 from tqdm import tqdm
 
-from ...ltx_core.types import Audio
+from ...ltx_core.types import Audio, VideoPixelShape
 from .constants import DEFAULT_IMAGE_CRF
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ def normalize_latent(latent: torch.Tensor, device: torch.device, dtype: torch.dt
     return (latent / 127.5 - 1.0).to(device=device, dtype=dtype)
 
 
-def load_image_conditioning(
+def load_image_and_preprocess(
     image_path: str,
     height: int,
     width: int,
@@ -99,16 +99,23 @@ def load_image_conditioning(
     return image
 
 
-def load_video_conditioning(
-    video_path: str, height: int, width: int, frame_cap: int, dtype: torch.dtype, device: torch.device
+def video_preprocess(
+    frames: Generator[torch.Tensor],
+    height: int,
+    width: int,
+    dtype: torch.dtype,
+    device: torch.device,
 ) -> torch.Tensor:
+    """Preprocesses a video frame generator for conditioning.
+    Args:
+        frames: Generator of video frames as tensors of shape (1, H, W, C), dtype uint8.
+        height: Target height in pixels.
+        width: Target width in pixels.
+        dtype: Target dtype for the output tensor.
+        device: Target device for the output tensor.
+    Returns:
+        Tensor of shape (1, C, F, height, width) with values in [-1, 1].
     """
-    Loads a video from a path and preprocesses it for conditioning.
-    Note: The video is resized to the nearest multiple of 2 for compatibility with video codecs.
-    """
-      
-    frames = decode_video_from_file(path=video_path, frame_cap=frame_cap, device=device)
-   
     result = None
     for f in frames:
         frame = resize_and_center_crop(f.to(torch.float32), height, width)
@@ -121,7 +128,7 @@ def decode_image(image_path: str) -> np.ndarray:
     if isinstance(image_path, str):
         image = Image.open(image_path)
     else:
-        image = image_path
+        image=image_path
     np_array = np.array(image)[..., :3]
     return np_array
 
@@ -262,9 +269,23 @@ def _audio_frame_to_float(frame: av.AudioFrame) -> np.ndarray:
     return arr
 
 
-def get_videostream_metadata(path: str) -> tuple[float, int, int, int]:
-    """Read video stream metadata: (fps, num_frames, width, height).
+def get_videostream_fps(path: str) -> float:
+    """Read video stream FPS."""
+    container = av.open(path)
+    try:
+        video_stream = next(s for s in container.streams if s.type == "video")
+        return float(video_stream.average_rate)
+    finally:
+        container.close()
+
+
+def get_videostream_metadata(path: str) -> VideoPixelShape:
+    """Read video stream metadata as a VideoPixelShape with batch=1.
     If frame count is missing in the container, decodes the stream to count frames.
+    Args:
+        path: Path to the video file.
+    Returns:
+        VideoPixelShape with batch=1, frames, height, width, and fps populated from the stream.
     """
     container = av.open(path)
     try:
@@ -275,43 +296,10 @@ def get_videostream_metadata(path: str) -> tuple[float, int, int, int]:
             num_frames = sum(1 for _ in container.decode(video_stream))
         width = video_stream.codec_context.width
         height = video_stream.codec_context.height
-        return fps, num_frames, width, height
+        return VideoPixelShape(batch=1, frames=num_frames, height=height, width=width, fps=fps)
     finally:
         container.close()
 
-def apply_start_time_max_duration(waveform: torch.Tensor, sample_rate, 
-                                 start_time: float = 0.0, max_duration: float = None):
-    """
-    手动应用开始时间和最大持续时间到已有的音频波形
-    
-    Args:
-        waveform: 音频波形张量，形状为 (batch, channels, samples)
-        sample_rate: 采样率
-        start_time: 开始时间（秒）
-        max_duration: 最大持续时间（秒）
-    
-    Returns:
-        裁剪后的音频波形
-    """
-    # 计算起始样本索引
-    start_sample = int(start_time * sample_rate)
-    if waveform.size(0) == 1:
-        waveform = waveform.repeat(2, 1) #  make sure 2 channels
-    #print(waveform.shape) #torch.Size([2, 1409024])
-    # 计算结束样本索引r
-    if max_duration is not None:
-        end_sample = start_sample + int(max_duration * sample_rate)
-    else:
-        end_sample = waveform.shape[-1]  # 使用全部样本
-    
-    # 确保索引不超出范围
-    start_sample = min(start_sample, waveform.shape[-1])
-    end_sample = min(end_sample, waveform.shape[-1])
-    
-    # 裁剪音频
-    cropped_waveform = waveform[..., start_sample:end_sample]
-    
-    return cropped_waveform
 
 def decode_audio_from_file(
     path: str, device: torch.device, start_time: float = 0.0, max_duration: float | None = None
@@ -376,16 +364,85 @@ def decode_audio_from_file(
     return Audio(waveform=waveform, sampling_rate=sample_rate)
 
 
-def decode_video_from_file(path: str, frame_cap: int, device: DeviceLikeType) -> Generator[torch.Tensor]:
+def decode_video_by_frame(
+    path: str,
+    device: DeviceLikeType,
+    starting_frame: int = 0,
+    frame_cap: int | None = None,
+) -> Generator[torch.Tensor]:
+    """Decodes video from a file by sequential frame index, without relying on pts.
+    Args:
+        path: Path to the video file.
+        device: Device to place the resulting tensors on.
+        starting_frame: Number of leading frames to skip (default 0).
+        frame_cap: Maximum number of frames to yield. If None, no frame limit (default None).
+    Yields:
+        Frames as tensors of shape (1, H, W, C), dtype uint8.
+    """
     container = av.open(path)
     try:
         video_stream = next(s for s in container.streams if s.type == "video")
-        for frame in container.decode(video_stream):
+        for index, frame in enumerate(container.decode(video_stream)):
+            if index < starting_frame:
+                continue
             tensor = torch.tensor(frame.to_rgb().to_ndarray(), dtype=torch.uint8, device=device).unsqueeze(0)
             yield tensor
-            frame_cap = frame_cap - 1
-            if frame_cap == 0:
+            if frame_cap is not None:
+                frame_cap -= 1
+                if frame_cap == 0:
+                    break
+    finally:
+        container.close()
+
+
+def decode_video_from_file(
+    path: str,
+    device: DeviceLikeType,
+    start_time: float = 0.0,
+    max_duration: float | None = None,
+) -> Generator[torch.Tensor]:
+    """Decodes video from a file using presentation timestamps for time-based trimming.
+    If a frame with no pts is encountered, falls back to :func:`decode_video_by_frame`
+    using FPS-derived frame indices.
+    Args:
+        path: Path to the video file.
+        device: Device to place the resulting tensors on.
+        start_time: Start time in seconds (default 0.0).
+        max_duration: Maximum duration in seconds to decode. If None, reads to end of
+            stream (default None).
+    Yields:
+        Frames as tensors of shape (1, H, W, C), dtype uint8.
+    """
+    container = av.open(path)
+    try:
+        video_stream = next(s for s in container.streams if s.type == "video")
+        time_base = float(video_stream.time_base)
+
+        if start_time > 0:
+            container.seek(int(start_time / time_base), stream=video_stream)
+
+        end_time = start_time + max_duration if max_duration is not None else None
+
+        for frame in container.decode(video_stream):
+            # PyAV may leave pts unset when the demuxer does not expose per-frame
+            # timestamps (e.g. some raw/elementary streams, stripped or missing
+            # metadata, or certain remux paths). Without pts we cannot map frames to
+            # wall-clock time, so we fall back to sequential frame indices using the
+            # stream's average frame rate.
+            if frame.pts is None:
+                fps = float(video_stream.average_rate)
+                starting_frame = round(start_time * fps)
+                frame_cap = round(max_duration * fps) if max_duration is not None else None
+                yield from decode_video_by_frame(
+                    path=path, device=device, starting_frame=starting_frame, frame_cap=frame_cap
+                )
+                return
+            frame_time = frame.pts * time_base
+            if frame_time < start_time:
+                continue
+            if end_time is not None and frame_time >= end_time:
                 break
+            yield torch.tensor(frame.to_rgb().to_ndarray(), dtype=torch.uint8, device=device).unsqueeze(0)
     finally:
         container.close()
 
@@ -427,3 +484,37 @@ def preprocess(image: np.array, crf: float = DEFAULT_IMAGE_CRF) -> np.array:
     with BytesIO(video_bytes) as video_file:
         image_array = decode_single_frame(video_file)
     return image_array
+
+def apply_start_time_max_duration(waveform: torch.Tensor, sample_rate, 
+                                 start_time: float = 0.0, max_duration: float = None):
+    """
+    手动应用开始时间和最大持续时间到已有的音频波形
+    
+    Args:
+        waveform: 音频波形张量，形状为 (batch, channels, samples)
+        sample_rate: 采样率
+        start_time: 开始时间（秒）
+        max_duration: 最大持续时间（秒）
+    
+    Returns:
+        裁剪后的音频波形
+    """
+    # 计算起始样本索引
+    start_sample = int(start_time * sample_rate)
+    if waveform.size(0) == 1:
+        waveform = waveform.repeat(2, 1) #  make sure 2 channels
+    #print(waveform.shape) #torch.Size([2, 1409024])
+    # 计算结束样本索引r
+    if max_duration is not None:
+        end_sample = start_sample + int(max_duration * sample_rate)
+    else:
+        end_sample = waveform.shape[-1]  # 使用全部样本
+    
+    # 确保索引不超出范围
+    start_sample = min(start_sample, waveform.shape[-1])
+    end_sample = min(end_sample, waveform.shape[-1])
+    
+    # 裁剪音频
+    cropped_waveform = waveform[..., start_sample:end_sample]
+    
+    return cropped_waveform

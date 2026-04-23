@@ -1,13 +1,13 @@
 """Video VAE package."""
 
-from ..video_vae.model_configurator import (
+from .model_configurator import (
     VAE_DECODER_COMFY_KEYS_FILTER,
     VAE_ENCODER_COMFY_KEYS_FILTER,
     VideoDecoderConfigurator,
     VideoEncoderConfigurator,
 )
-from ..video_vae.tiling import SpatialTilingConfig, TemporalTilingConfig, TilingConfig
-from ..video_vae.video_vae import VideoDecoder, VideoEncoder, decode_video, get_video_chunks_number
+from .tiling import SpatialTilingConfig, TemporalTilingConfig, TilingConfig
+from .video_vae import VideoDecoder, VideoEncoder, get_video_chunks_number
 
 __all__ = [
     "VAE_DECODER_COMFY_KEYS_FILTER",
@@ -19,6 +19,5 @@ __all__ = [
     "VideoDecoderConfigurator",
     "VideoEncoder",
     "VideoEncoderConfigurator",
-    "decode_video",
     "get_video_chunks_number",
 ]

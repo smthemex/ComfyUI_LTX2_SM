@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import NamedTuple, Protocol
+from typing import TYPE_CHECKING, NamedTuple, Protocol
 
 import torch
 
 from .module_ops import ModuleOps
 from .sd_ops import SDOps
 from ..model.model_protocol import ModelType
+
+if TYPE_CHECKING:
+    from .registry import Registry
 
 
 @dataclass(frozen=True)
@@ -55,6 +60,11 @@ class ModelBuilderProtocol(Protocol[ModelType]):
     - build: Create and initialize a model from state dictionary and apply dtype transformations
     """
 
+    model_sd_ops: SDOps | None
+    module_ops: tuple[ModuleOps, ...]
+    loras: tuple["LoraPathStrengthAndSDOps", ...]
+    registry: "Registry"
+
     def meta_model(self, config: dict, module_ops: list[ModuleOps] | None = None) -> ModelType:
         """
         Create a model on the meta device from a configuration dictionary.
@@ -68,14 +78,41 @@ class ModelBuilderProtocol(Protocol[ModelType]):
         """
         ...
 
-    def build(self, dtype: torch.dtype | None = None) -> ModelType:
+    def with_sd_ops(self, sd_ops: SDOps | None) -> "ModelBuilderProtocol[ModelType]":
+        """Return a copy of this builder with the given state-dict key remapping ops."""
+        ...
+
+    def with_module_ops(self, module_ops: tuple[ModuleOps, ...]) -> "ModelBuilderProtocol[ModelType]":
+        """Return a copy of this builder with the given module operations (e.g. quantization)."""
+        ...
+
+    def with_loras(self, loras: tuple["LoraPathStrengthAndSDOps", ...]) -> "ModelBuilderProtocol[ModelType]":
+        """Return a copy of this builder with the given LoRAs to fuse at build time."""
+        ...
+
+    def with_registry(self, registry: "Registry") -> "ModelBuilderProtocol[ModelType]":
+        """Return a copy of this builder using the given weight registry for allocation."""
+        ...
+
+    def with_lora_load_device(self, device: torch.device) -> "ModelBuilderProtocol[ModelType]":
+        """Return a copy of this builder that loads LoRA weights onto the given device."""
+        ...
+
+    def build(
+        self, device: torch.device | None = None, dtype: torch.dtype | None = None, **kwargs: object
+    ) -> ModelType:
         """
         Build the model
         Args:
+            device: Target device for the model
             dtype: Target dtype for the model, if None, uses the dtype of the model_path model
         Returns:
             Model instance
         """
+        ...
+
+    def model_config(self) -> dict:
+        """Return the model configuration dictionary extracted from the checkpoint metadata."""
         ...
 
 

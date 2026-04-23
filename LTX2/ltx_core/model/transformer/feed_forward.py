@@ -1,6 +1,6 @@
 import torch
 
-from ..transformer.gelu_approx import GELUApprox
+from .gelu_approx import GELUApprox
 
 
 class FeedForward(torch.nn.Module):

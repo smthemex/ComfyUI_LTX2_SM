@@ -5,8 +5,8 @@ from torch import nn
 
 from ..common.normalization import PixelNorm
 from ..transformer.timestep_embedding import PixArtAlphaCombinedTimestepSizeEmbeddings
-from ..video_vae.convolution import make_conv_nd, make_linear_nd
-from ..video_vae.enums import NormLayerType, PaddingModeType
+from .convolution import make_conv_nd, make_linear_nd
+from  .enums import NormLayerType, PaddingModeType
 
 
 class ResnetBlock3D(nn.Module):

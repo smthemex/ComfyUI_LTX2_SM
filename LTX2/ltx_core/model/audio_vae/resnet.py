@@ -2,8 +2,8 @@ from typing import Tuple
 
 import torch
 
-from ..audio_vae.causal_conv_2d import make_conv2d
-from ..audio_vae.causality_axis import CausalityAxis
+from .causal_conv_2d import make_conv2d
+from .causality_axis import CausalityAxis
 from ..common.normalization import NormType, build_normalization_layer
 
 LRELU_SLOPE = 0.1

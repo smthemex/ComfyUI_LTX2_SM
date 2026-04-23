@@ -36,7 +36,8 @@ if TYPE_CHECKING:
     from ltx_core.model.audio_vae import AudioDecoder, Vocoder
     from ltx_core.model.transformer import LTXModel
     from ltx_core.model.video_vae import VideoDecoder, VideoEncoder
-    from ltx_core.text_encoders.gemma import AVGemmaTextEncoderModel
+    from ltx_core.text_encoders.gemma import GemmaTextEncoder
+    from ltx_core.text_encoders.gemma.embeddings_processor import EmbeddingsProcessor
 
 VIDEO_SCALE_FACTORS = SpatioTemporalScaleFactors.default()
 
@@ -85,6 +86,7 @@ class GenerationConfig:
     seed: int = 42  # Random seed for reproducibility
     condition_image: Tensor | None = None  # Optional first frame image for image-to-video
     reference_video: Tensor | None = None  # For IC-LoRA: [F, C, H, W] in [0, 1]
+    reference_downscale_factor: int = 1  # For IC-LoRA: downscale factor (1 = same resolution, 2 = half resolution)
     generate_audio: bool = True  # Whether to generate audio alongside video
     include_reference_in_output: bool = False  # For IC-LoRA: concatenate original reference with generated output
     cached_embeddings: CachedPromptEmbeddings | None = None  # Pre-computed text embeddings (avoids loading Gemma)
@@ -123,25 +125,28 @@ class ValidationSampler:
         transformer: "LTXModel",
         vae_decoder: "VideoDecoder",
         vae_encoder: "VideoEncoder | None",
-        text_encoder: "AVGemmaTextEncoderModel | None" = None,
+        text_encoder: "GemmaTextEncoder | None" = None,
         audio_decoder: "AudioDecoder | None" = None,
         vocoder: "Vocoder | None" = None,
         sampling_context: SamplingContext | None = None,
+        embeddings_processor: "EmbeddingsProcessor | None" = None,
     ):
         """Initialize the validation sampler.
         Args:
             transformer: LTX-2 transformer model
             vae_decoder: Video VAE decoder
             vae_encoder: Video VAE encoder (for image/video conditioning), can be None if not needed
-            text_encoder: Gemma text encoder with embeddings connector (optional if cached_embeddings in config)
+            text_encoder: Gemma text encoder (optional if cached_embeddings in config)
             audio_decoder: Optional audio VAE decoder (for audio generation)
             vocoder: Optional vocoder (for audio generation)
             sampling_context: Optional SamplingContext for progress display during denoising
+            embeddings_processor: Optional embeddings processor (required if text_encoder provided)
         """
         self._transformer = transformer
         self._vae_decoder = vae_decoder
         self._vae_encoder = vae_encoder
         self._text_encoder = text_encoder
+        self._embeddings_processor = embeddings_processor
         self._audio_decoder = audio_decoder
         self._vocoder = vocoder
         self._sampling_context = sampling_context
@@ -250,6 +255,14 @@ class ValidationSampler:
         ref_video_preprocessed = self._preprocess_reference_video(config)
         ref_latent, ref_positions = self._encode_video(ref_video_preprocessed, config.frame_rate, device)
         ref_seq_len = ref_latent.shape[1]
+
+        # Scale reference positions to match target coordinate space
+        # Position tensor shape: [B, 3, seq_len, 2] where dim 1 is (time, height, width)
+        if config.reference_downscale_factor != 1:
+            ref_positions = ref_positions.clone()
+            ref_positions[:, 1, ...] *= config.reference_downscale_factor  # height axis
+            ref_positions[:, 2, ...] *= config.reference_downscale_factor  # width axis
+            # Time axis (index 0) remains unchanged
 
         # Create target video state
         video_tools = self._create_video_latent_tools(config)
@@ -375,13 +388,28 @@ class ValidationSampler:
     @staticmethod
     def _preprocess_reference_video(config: GenerationConfig) -> Tensor:
         """Preprocess reference video: resize, crop, and convert to model input format.
+        When reference_downscale_factor > 1, the reference video is downscaled to a smaller
+        resolution for more efficient inference. The positions will be scaled up later
+        to match the target coordinate space.
         Args:
-            config: Generation configuration with reference_video
+            config: Generation configuration
         Returns:
             Preprocessed video tensor [B, C, F, H, W] in [-1, 1] range
         """
         ref_video = config.reference_video  # [F, C, H, W] in [0, 1]
-        target_height, target_width = config.height, config.width
+        scale_factor = config.reference_downscale_factor
+
+        # Target dimensions for reference (scaled down if scale_factor > 1)
+        target_height = config.height // scale_factor
+        target_width = config.width // scale_factor
+
+        # Validate scaled dimensions
+        if target_height % 32 != 0 or target_width % 32 != 0:
+            raise ValueError(
+                f"Scaled reference dimensions ({target_height}x{target_width}) must be divisible by 32. "
+                f"Original: {config.height}x{config.width}, scale_factor: {scale_factor}"
+            )
+
         current_height, current_width = ref_video.shape[2:]
 
         # Resize maintaining aspect ratio and center crop if needed
@@ -473,6 +501,7 @@ class ValidationSampler:
         video = Modality(
             enabled=True,
             latent=video_state.latent,
+            sigma=sigmas[0].repeat(video_state.latent.shape[0]),
             timesteps=video_state.denoise_mask,
             positions=video_state.positions,
             context=v_ctx_pos,
@@ -485,6 +514,7 @@ class ValidationSampler:
             audio = Modality(
                 enabled=True,
                 latent=audio_state.latent,
+                sigma=sigmas[0].repeat(audio_state.latent.shape[0]),
                 timesteps=audio_state.denoise_mask,
                 positions=audio_state.positions,
                 context=a_ctx_pos,
@@ -501,6 +531,7 @@ class ValidationSampler:
                 video = replace(
                     video,
                     latent=video_state.latent,
+                    sigma=sigma.repeat(video_state.latent.shape[0]),
                     timesteps=sigma * video_state.denoise_mask,
                     positions=video_state.positions,
                 )
@@ -509,6 +540,7 @@ class ValidationSampler:
                     audio = replace(
                         audio,
                         latent=audio_state.latent,
+                        sigma=sigma.repeat(audio_state.latent.shape[0]),
                         timesteps=sigma * audio_state.denoise_mask,
                         positions=audio_state.positions,
                     )
@@ -649,6 +681,8 @@ class ValidationSampler:
         # Validate prompt embedding source
         if config.cached_embeddings is None and self._text_encoder is None:
             raise ValueError("Either text_encoder or config.cached_embeddings must be provided")
+        if config.cached_embeddings is None and self._embeddings_processor is None:
+            raise ValueError("embeddings_processor is required when encoding prompts on-the-fly")
 
     def _get_prompt_embeddings(
         self, config: GenerationConfig, device: torch.device
@@ -669,17 +703,22 @@ class ValidationSampler:
     def _encode_prompts(
         self, config: GenerationConfig, device: torch.device
     ) -> tuple[Tensor, Tensor, Tensor | None, Tensor | None]:
-        """Encode positive and negative prompts using the text encoder."""
+        """Encode positive and negative prompts using the text encoder + embeddings processor."""
         self._text_encoder.to(device)
-        v_ctx_pos, a_ctx_pos, _ = self._text_encoder(config.prompt)
+        self._embeddings_processor.to(device)
+
+        pos_hs, pos_mask = self._text_encoder.encode(config.prompt)
+        pos_out = self._embeddings_processor.process_hidden_states(pos_hs, pos_mask)
+        v_ctx_pos, a_ctx_pos = pos_out.video_encoding, pos_out.audio_encoding
+
         v_ctx_neg, a_ctx_neg = None, None
         if config.guidance_scale != 1.0:
-            v_ctx_neg, a_ctx_neg, _ = self._text_encoder(config.negative_prompt)
+            neg_hs, neg_mask = self._text_encoder.encode(config.negative_prompt)
+            neg_out = self._embeddings_processor.process_hidden_states(neg_hs, neg_mask)
+            v_ctx_neg, a_ctx_neg = neg_out.video_encoding, neg_out.audio_encoding
 
-        # Move the base Gemma model to CPU but keep embeddings connectors on GPU
-        # as this module is also used during training
+        # Move the base Gemma model to CPU
         self._text_encoder.model.to("cpu")
-        self._text_encoder.feature_extractor_linear.to("cpu")
 
         return v_ctx_pos, a_ctx_pos, v_ctx_neg, a_ctx_neg
 
@@ -728,8 +767,9 @@ class ValidationSampler:
     def _decode_audio(self, audio_state: LatentState, device: torch.device) -> Tensor:
         """Decode audio latents to waveform."""
         self._audio_decoder.to(device)
-        # Ensure latent is bfloat16 to match decoder weights
-        latent = audio_state.latent.to(dtype=torch.bfloat16)
+        first_param = next(self._audio_decoder.parameters(), None)
+        decoder_dtype = first_param.dtype if first_param is not None else audio_state.latent.dtype
+        latent = audio_state.latent.to(dtype=decoder_dtype, device=device)
         decoded_audio = self._audio_decoder(latent)
         self._audio_decoder.to("cpu")
 
@@ -745,11 +785,28 @@ class ValidationSampler:
         If the videos have different frame counts, the shorter one is padded with
         its last frame repeated.
         Args:
-            left_video: Left video tensor [C, F1, H, W] in [0, 1]
-            right_video: Right video tensor [C, F2, H, W] in [0, 1]
+            left_video: Left video tensor [C, F1, H1, W1] in [0, 1]
+            right_video: Right video tensor [C, F2, H2, W2] in [0, 1]
         Returns:
-            Concatenated video tensor [C, max(F1,F2), H, W*2] in [0, 1]
+            Concatenated video tensor [C, max(F1,F2), H2, W1_scaled+W2] in [0, 1]
         """
+        left_height, left_width = left_video.shape[2], left_video.shape[3]
+        right_height = right_video.shape[2]
+
+        # Resize left video to match right video's height if needed
+        if left_height != right_height:
+            # Scale width proportionally to maintain aspect ratio
+            scale = right_height / left_height
+            new_width = int(left_width * scale)
+            # Interpolate expects [N, C, H, W], we have [C, F, H, W]
+            # Reshape to [C*F, 1, H, W] -> interpolate -> reshape back
+            c, f, h, w = left_video.shape
+            left_video = left_video.reshape(c * f, 1, h, w)
+            left_video = torch.nn.functional.interpolate(
+                left_video, size=(right_height, new_width), mode="bilinear", align_corners=False
+            )
+            left_video = left_video.reshape(c, f, right_height, new_width)
+
         left_frames = left_video.shape[1]
         right_frames = right_video.shape[1]
 

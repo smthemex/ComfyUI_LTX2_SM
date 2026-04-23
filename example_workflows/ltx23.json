@@ -1,30 +1,67 @@
 {
   "id": "19b12b90-3e37-4a3d-90c3-44b46f727c25",
   "revision": 0,
-  "last_node_id": 177,
-  "last_link_id": 349,
+  "last_node_id": 183,
+  "last_link_id": 381,
   "nodes": [
+    {
+      "id": 23,
+      "type": "PreviewAny",
+      "pos": [
+        2021.6098857256613,
+        2530.2328297547165
+      ],
+      "size": [
+        346.30743506653835,
+        325.97758047708203
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "source",
+          "type": "*",
+          "link": 368
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewAny"
+      },
+      "widgets_values": [
+        null,
+        null,
+        null
+      ]
+    },
     {
       "id": 14,
       "type": "LTX2_SM_Clip",
       "pos": [
-        1907.419534671572,
-        2319.679965746802
+        1982.9329651236826,
+        2324.4745987814267
       ],
       "size": [
-        345.34728091995044,
-        89.84867509582818
+        345.3125,
+        140.765625
       ],
       "flags": {},
       "order": 0,
-      "mode": 2,
+      "mode": 0,
       "inputs": [],
       "outputs": [
         {
           "name": "clip",
           "type": "CLIP",
           "links": [
-            44
+            365
           ]
         }
       ],
@@ -33,1485 +70,51 @@
       },
       "widgets_values": [
         "gemma-3-12b-it-qat-Q4_0.gguf",
-        "connector.safetensors"
+        "connector.safetensors",
+        "cuda"
       ]
     },
     {
-      "id": 24,
-      "type": "PreviewAny",
-      "pos": [
-        2377.978711804167,
-        2659.970950796125
-      ],
-      "size": [
-        454.32925573313094,
-        210.03106728759667
-      ],
-      "flags": {},
-      "order": 42,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "source",
-          "type": "*",
-          "link": 48
-        }
-      ],
-      "outputs": [],
-      "properties": {
-        "Node name for S&R": "PreviewAny"
-      },
-      "widgets_values": [
-        null,
-        null,
-        null
-      ]
-    },
-    {
-      "id": 23,
-      "type": "PreviewAny",
-      "pos": [
-        2011.9605230988127,
-        2671.6925342509703
-      ],
-      "size": [
-        317.9192825676374,
-        223.84473545625315
-      ],
-      "flags": {},
-      "order": 41,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "source",
-          "type": "*",
-          "link": 47
-        }
-      ],
-      "outputs": [],
-      "properties": {
-        "Node name for S&R": "PreviewAny"
-      },
-      "widgets_values": [
-        null,
-        null,
-        null
-      ]
-    },
-    {
-      "id": 50,
-      "type": "Note",
-      "pos": [
-        3421.942371800282,
-        3599.5654121972293
-      ],
-      "size": [
-        297.9708890796526,
-        88
-      ],
-      "flags": {},
-      "order": 1,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [],
-      "properties": {},
-      "widgets_values": [
-        "2 stage模式差别跟distill差别不大，只是普通模型用 distill lora ,ksampler 的cfg可以调整"
-      ],
-      "color": "#432",
-      "bgcolor": "#653"
-    },
-    {
-      "id": 98,
-      "type": "LoadImage",
-      "pos": [
-        2725.708700124245,
-        3744.4306879866995
-      ],
-      "size": [
-        270,
-        314
-      ],
-      "flags": {},
-      "order": 2,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            205
-          ]
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoadImage"
-      },
-      "widgets_values": [
-        "5d67270f013c63b15bb636b18eb892f1.png",
-        "image"
-      ]
-    },
-    {
-      "id": 78,
-      "type": "Note",
-      "pos": [
-        5230.771699551715,
-        2449.3600580872458
-      ],
-      "size": [
-        297.9708890796526,
-        88
-      ],
-      "flags": {},
-      "order": 3,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [],
-      "properties": {},
-      "widgets_values": [
-        "2 stage模式差别跟distill差别不大，只是普通模型用 distill lora "
-      ],
-      "color": "#432",
-      "bgcolor": "#653"
-    },
-    {
-      "id": 118,
-      "type": "LoadImage",
-      "pos": [
-        4883.028584999397,
-        2659.839447150587
-      ],
-      "size": [
-        270,
-        314.0000000000002
-      ],
-      "flags": {},
-      "order": 4,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            246
-          ]
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoadImage"
-      },
-      "widgets_values": [
-        "ScreenShot_2026-03-16_203933_105.png",
-        "image"
-      ]
-    },
-    {
-      "id": 104,
-      "type": "LTX2_LATENTS",
-      "pos": [
-        4477.993995377911,
-        2316.0866802171886
-      ],
-      "size": [
-        270,
-        302
-      ],
-      "flags": {},
-      "order": 43,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "shape": 7,
-          "type": "VAE",
-          "link": 220
-        },
-        {
-          "name": "audio_vae",
-          "shape": 7,
-          "type": "VAE",
-          "link": null
-        },
-        {
-          "name": "image",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 222
-        },
-        {
-          "name": "audio",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": null
-        },
-        {
-          "name": "ic_lora_video",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": null
-        },
-        {
-          "name": "ic_lora_mask",
-          "shape": 7,
-          "type": "MASK",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            228
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_LATENTS"
-      },
-      "widgets_values": [
-        512,
-        768,
-        241,
-        24,
-        0.8,
-        0,
-        0
-      ]
-    },
-    {
-      "id": 112,
-      "type": "ImageBatch",
-      "pos": [
-        4585.176669842697,
-        2604.4161634916945
-      ],
-      "size": [
-        140,
-        46
-      ],
-      "flags": {},
-      "order": 34,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "image1",
-          "type": "IMAGE",
-          "link": 244
-        },
-        {
-          "name": "image2",
-          "type": "IMAGE",
-          "link": 246
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            222
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "ImageBatch"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 80,
-      "type": "LTX2_SM_VAE",
-      "pos": [
-        4840.258026682903,
-        2036.1946539009584
-      ],
-      "size": [
-        270,
-        58
-      ],
-      "flags": {},
-      "order": 5,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "links": [
-            220,
-            232,
-            236
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_VAE"
-      },
-      "widgets_values": [
-        "ltx-2.3-22b-distilled_video_vae.safetensors"
-      ]
-    },
-    {
-      "id": 115,
-      "type": "LTX2_EN_DECO_VIDEO",
-      "pos": [
-        5617.146619411864,
-        2220.307632629236
-      ],
-      "size": [
-        270,
-        102
-      ],
-      "flags": {},
-      "order": 76,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 236
-        },
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "link": 234
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": []
-        },
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "links": [
-            235
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_EN_DECO_VIDEO"
-      },
-      "widgets_values": [
-        "none",
-        true
-      ]
-    },
-    {
-      "id": 82,
-      "type": "LTX2_SM_StageTwo",
-      "pos": [
-        5595.925888189632,
-        2071.5233552820646
-      ],
-      "size": [
-        194.68359375,
-        66
-      ],
-      "flags": {},
-      "order": 69,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 159
-        },
-        {
-          "name": "latents",
-          "type": "LATENT",
-          "link": 233
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "link": 241
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            234
-          ]
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "links": [
-            215
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_StageTwo"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 83,
-      "type": "LTX2_SM_AUDIO_VAE",
-      "pos": [
-        5831.71943962867,
-        2051.094904669991
-      ],
-      "size": [
-        270,
-        82
-      ],
-      "flags": {},
-      "order": 6,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "audio_vae",
-          "type": "VAE",
-          "links": [
-            216
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_AUDIO_VAE"
-      },
-      "widgets_values": [
-        "ltx-2.3-22b-distilled_audio_vae.safetensors"
-      ]
-    },
-    {
-      "id": 103,
-      "type": "LTX2_DECO_AUDIO",
-      "pos": [
-        5917.174181698709,
-        2185.391956540232
-      ],
-      "size": [
-        170.1041015625,
-        46
-      ],
-      "flags": {},
-      "order": 77,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "audio_vae",
-          "type": "VAE",
-          "link": 216
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "link": 215
-        }
-      ],
-      "outputs": [
-        {
-          "name": "audio",
-          "type": "AUDIO",
-          "links": [
-            217
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_DECO_AUDIO"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 85,
-      "type": "CreateVideo",
-      "pos": [
-        5632.061130604986,
-        2406.815558865152
-      ],
-      "size": [
-        270,
-        78
-      ],
-      "flags": {},
-      "order": 83,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 235
-        },
-        {
-          "name": "audio",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": 217
-        }
-      ],
-      "outputs": [
-        {
-          "name": "VIDEO",
-          "type": "VIDEO",
-          "links": [
-            167
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "CreateVideo"
-      },
-      "widgets_values": [
-        24
-      ]
-    },
-    {
-      "id": 86,
-      "type": "SaveVideo",
-      "pos": [
-        5605.838874078892,
-        2533.044320921392
-      ],
-      "size": [
-        474.02258013318806,
-        418.17096405821803
-      ],
-      "flags": {},
-      "order": 86,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "video",
-          "type": "VIDEO",
-          "link": 167
-        }
-      ],
-      "outputs": [],
-      "properties": {},
-      "widgets_values": [
-        "video/ComfyUI",
-        "auto",
-        "auto"
-      ]
-    },
-    {
-      "id": 120,
-      "type": "Note",
-      "pos": [
-        3101.202240490878,
-        2649.8175292627466
-      ],
-      "size": [
-        1121.9922978825969,
-        339.1047134701871
-      ],
-      "flags": {},
-      "order": 7,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [],
-      "properties": {},
-      "widgets_values": [
-        "cfg_scale\tClassifier-Free Guidance scale. Higher values make the output adhere more strongly to the text prompt. Typical values: 2.0–5.0. Set to 1.0 to disable.\nstg_scale\tSpatio-Temporal Guidance scale. Controls perturbation-based guidance for improved temporal coherence. Typical values: 0.5–1.5. Set to 0.0 to disable.\nstg_blocks\tWhich transformer blocks to perturb for STG (e.g., [29] for the last block). Set to [] to disable STG.\nrescale_scale\tRescales the guided prediction to match the variance of the conditional prediction. Helps prevent over-saturation. Typical values: 0.5–0.7. Set to 0.0 to disable.\nmodality_scale\tModality CFG scale. Steers the model away from unsynced video and audio results, improving audio-visual coherence. Set to 1.0 to disable.\nskip_step\tSkip guidance every N steps. Can speed up inference with minimal quality loss. Set to 0 to disable (never skip).\n# examples \nvideo_guider_params = MultiModalGuiderParams(\n    cfg_scale=3.0,\n    stg_scale=1.0,\n    rescale_scale=0.7,\n    modality_scale=3.0,\n    skip_step=0,\n    stg_blocks=[29],\n)\n\naudio_guider_params = MultiModalGuiderParams(\n    cfg_scale=7.0,\n    stg_scale=1.0,\n    rescale_scale=0.7,\n    modality_scale=3.0,\n    skip_step=0,\n    stg_blocks=[29],\n)"
-      ],
-      "color": "#432",
-      "bgcolor": "#653"
-    },
-    {
-      "id": 113,
+      "id": 183,
       "type": "LTX2_SM_KSampler",
       "pos": [
-        4888.929502207924,
-        2142.2836691345024
+        3370.993148383389,
+        2323.5806354636857
       ],
       "size": [
         312.341796875,
-        550
-      ],
-      "flags": {},
-      "order": 52,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 227
-        },
-        {
-          "name": "latents",
-          "type": "LATENT",
-          "link": 228
-        },
-        {
-          "name": "positive",
-          "shape": 7,
-          "type": "CONDITIONING",
-          "link": 279
-        },
-        {
-          "name": "negative",
-          "shape": 7,
-          "type": "CONDITIONING",
-          "link": 280
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            231
-          ]
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "links": [
-            241
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_KSampler"
-      },
-      "widgets_values": [
-        8,
-        896657542,
-        "increment",
-        1,
-        0,
-        0,
-        1,
-        0,
-        -1,
-        1,
-        0,
-        0,
-        1,
-        0,
-        -1,
-        true,
-        true,
-        false,
-        false
-      ]
-    },
-    {
-      "id": 125,
-      "type": "LTX2_SM_VAE",
-      "pos": [
-        4939.570839294704,
-        3147.068807713415
-      ],
-      "size": [
-        270,
-        58
+        522
       ],
       "flags": {},
       "order": 8,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "links": [
-            254,
-            256
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_VAE"
-      },
-      "widgets_values": [
-        "ltx-2.3-22b-distilled_video_vae.safetensors"
-      ]
-    },
-    {
-      "id": 131,
-      "type": "CreateVideo",
-      "pos": [
-        5390.589837646586,
-        3448.9260897815197
-      ],
-      "size": [
-        270,
-        78
-      ],
-      "flags": {},
-      "order": 78,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 263
-        },
-        {
-          "name": "audio",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": 268
-        }
-      ],
-      "outputs": [
-        {
-          "name": "VIDEO",
-          "type": "VIDEO",
-          "links": [
-            265
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "CreateVideo"
-      },
-      "widgets_values": [
-        24
-      ]
-    },
-    {
-      "id": 128,
-      "type": "LTX2_SM_StageTwo",
-      "pos": [
-        5741.231102009519,
-        3165.4634341947813
-      ],
-      "size": [
-        194.68359375,
-        66
-      ],
-      "flags": {},
-      "order": 60,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 258
-        },
-        {
-          "name": "latents",
-          "type": "LATENT",
-          "link": 259
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "link": 269
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            257
-          ]
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "links": []
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_StageTwo"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 114,
-      "type": "LTX2_EN_DECO_VIDEO",
-      "pos": [
-        5292.57502566267,
-        2150.5748296651004
-      ],
-      "size": [
-        270,
-        102
-      ],
-      "flags": {},
-      "order": 59,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 232
-        },
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "link": 231
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            233
-          ]
-        },
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_EN_DECO_VIDEO"
-      },
-      "widgets_values": [
-        "ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
-        true
-      ]
-    },
-    {
-      "id": 126,
-      "type": "LTX2_EN_DECO_VIDEO",
-      "pos": [
-        5418.971920986839,
-        3210.754200081041
-      ],
-      "size": [
-        270,
-        102
-      ],
-      "flags": {},
-      "order": 53,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 254
-        },
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "link": 255
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            259
-          ]
-        },
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_EN_DECO_VIDEO"
-      },
-      "widgets_values": [
-        "ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
-        true
-      ]
-    },
-    {
-      "id": 133,
-      "type": "LoadAudio",
-      "pos": [
-        4417.397009054441,
-        3354.903824329624
-      ],
-      "size": [
-        270,
-        136
-      ],
-      "flags": {},
-      "order": 9,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "AUDIO",
-          "type": "AUDIO",
-          "links": [
-            267,
-            268
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoadAudio"
-      },
-      "widgets_values": [
-        "002.WAV",
-        null,
-        null
-      ]
-    },
-    {
-      "id": 127,
-      "type": "LTX2_EN_DECO_VIDEO",
-      "pos": [
-        5973.951525195237,
-        3151.035214569635
-      ],
-      "size": [
-        270,
-        102
-      ],
-      "flags": {},
-      "order": 70,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 256
-        },
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "link": 257
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": []
-        },
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "links": [
-            263
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_EN_DECO_VIDEO"
-      },
-      "widgets_values": [
-        "none",
-        true
-      ]
-    },
-    {
-      "id": 132,
-      "type": "SaveVideo",
-      "pos": [
-        5712.59048471563,
-        3297.7695701993025
-      ],
-      "size": [
-        578.0225801331881,
-        821.0338701997821
-      ],
-      "flags": {},
-      "order": 84,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "video",
-          "type": "VIDEO",
-          "link": 265
-        }
-      ],
-      "outputs": [],
-      "properties": {},
-      "widgets_values": [
-        "video/ComfyUI",
-        "auto",
-        "auto"
-      ]
-    },
-    {
-      "id": 105,
-      "type": "LoadImage",
-      "pos": [
-        4482.322731601252,
-        2670.2433723712625
-      ],
-      "size": [
-        270,
-        314.0000000000002
-      ],
-      "flags": {},
-      "order": 10,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            244
-          ]
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoadImage"
-      },
-      "widgets_values": [
-        "ScreenShot_2026-03-16_203944_472.png",
-        "image"
-      ]
-    },
-    {
-      "id": 121,
-      "type": "LTX2_LATENTS",
-      "pos": [
-        4729.924995184418,
-        3540.8645745112426
-      ],
-      "size": [
-        270,
-        302
-      ],
-      "flags": {},
-      "order": 35,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "shape": 7,
-          "type": "VAE",
-          "link": null
-        },
-        {
-          "name": "audio_vae",
-          "shape": 7,
-          "type": "VAE",
-          "link": 266
-        },
-        {
-          "name": "image",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": null
-        },
-        {
-          "name": "audio",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": 267
-        },
-        {
-          "name": "ic_lora_video",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": null
-        },
-        {
-          "name": "ic_lora_mask",
-          "shape": 7,
-          "type": "MASK",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            253
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_LATENTS"
-      },
-      "widgets_values": [
-        512,
-        768,
-        121,
-        24,
-        0.8,
-        0,
-        0
-      ]
-    },
-    {
-      "id": 142,
-      "type": "SaveVideo",
-      "pos": [
-        1869.4203688390853,
-        4664.849470290346
-      ],
-      "size": [
-        691.0216190664546,
-        1307.2878333662957
-      ],
-      "flags": {},
-      "order": 79,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "video",
-          "type": "VIDEO",
-          "link": 293
-        }
-      ],
-      "outputs": [],
-      "properties": {},
-      "widgets_values": [
-        "video/ComfyUI",
-        "auto",
-        "auto"
-      ]
-    },
-    {
-      "id": 123,
-      "type": "LTX2_SM_KSampler",
-      "pos": [
-        5018.579279319016,
-        3273.3824338003615
-      ],
-      "size": [
-        312.341796875,
-        550
-      ],
-      "flags": {},
-      "order": 44,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 252
-        },
-        {
-          "name": "latents",
-          "type": "LATENT",
-          "link": 253
-        },
-        {
-          "name": "positive",
-          "shape": 7,
-          "type": "CONDITIONING",
-          "link": 277
-        },
-        {
-          "name": "negative",
-          "shape": 7,
-          "type": "CONDITIONING",
-          "link": 278
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            255
-          ]
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "links": [
-            269
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_KSampler"
-      },
-      "widgets_values": [
-        8,
-        896657520,
-        "fixed",
-        1,
-        0,
-        0,
-        1,
-        0,
-        -1,
-        1,
-        0,
-        0,
-        1,
-        0,
-        -1,
-        true,
-        true,
-        false,
-        false
-      ]
-    },
-    {
-      "id": 22,
-      "type": "LTX2_SM_ENCODER",
-      "pos": [
-        2290.5254778358817,
-        2298.006103687345
-      ],
-      "size": [
-        548.432709411458,
-        263.03762032472196
-      ],
-      "flags": {},
-      "order": 33,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "clip",
-          "type": "CLIP",
-          "link": 44
-        },
-        {
-          "name": "image",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "positive",
-          "type": "CONDITIONING",
-          "links": [
-            47,
-            248,
-            277,
-            279
-          ]
-        },
-        {
-          "name": "negative",
-          "type": "CONDITIONING",
-          "links": [
-            48,
-            249,
-            278,
-            280
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_ENCODER"
-      },
-      "widgets_values": [
-        false,
-        "description\": \"A cinematic medium shot of a young man resistance fighter concealed behind a moss-covered fallen tree in a dense jungle. He remains still for a brief moment, bolt-action rifle raised and steady as he carefully aims toward the left side of the frame, his breathing slow and controlled. He fires a single decisive shot, the rifle recoiling sharply with a brief muzzle flash cutting through the muted green forest. After the shot, he holds his position, eyes fixed forward as he listens, then lowers the rifle slightly. He steps out from behind cover and begins walking slowly toward the left side of the frame, gripping the weapon firmly and carrying it ready across his body. His expression is calm but heavy, eyes scanning ahead with quiet focus. The camera pans smoothly left with his movement, revealing a deer lying completely motionless on the forest floor, lifeless among leaves and undergrowth. He pauses briefly, acknowledging the fallen animal, then continues forward without haste.\",\n    \"camera_movement\": \"static hold during aim and shot, subtle handheld recoil at firing moment, smooth pan left following the character’s walk\",\n    \"lighting\": \"soft natural forest daylight with cool green tones and gentle shadows\",\n    \"style\": \"cinematic realism, grounded and somber tone, restrained motion, shallow depth of field, 24fps film look with light grain\",\n    \"audio\": {\n      \"ambience\": \"low jungle ambience with insects and distant birds\",\n      \"effects\": [\n        \"single sharp rifle gunshot echo\",\n        \"soft footsteps on leaves\"",
-        "古风汉服女子半身特写镜头，面容温婉精致，发髻步摇轻轻晃动，眉眼含情，唇齿微动轻声念白：“春风十里，不如与君共赏人间烟火。” 发丝与衣襟微微动态飘动，暖柔古风光影，镜头缓慢微移，情绪细腻自然，国风唯美氛围感，流畅动态，4K 超清电影级画质。",
-        "blurry, low quality, still frame, frames, watermark, overlay, titles, has blurbox, has subtitles"
-      ]
-    },
-    {
-      "id": 101,
-      "type": "LTX2_DECO_AUDIO",
-      "pos": [
-        1949.1114774430512,
-        3348.569120445899
-      ],
-      "size": [
-        170.1041015625,
-        46
-      ],
-      "flags": {},
-      "order": 51,
       "mode": 0,
       "inputs": [
         {
-          "name": "audio_vae",
-          "type": "VAE",
-          "link": 212
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "link": 346
-        }
-      ],
-      "outputs": [
-        {
-          "name": "audio",
-          "type": "AUDIO",
-          "links": [
-            213
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_DECO_AUDIO"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 147,
-      "type": "CreateVideo",
-      "pos": [
-        2110.0777419612214,
-        4509.757925614719
-      ],
-      "size": [
-        270,
-        78
-      ],
-      "flags": {},
-      "order": 71,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 292
-        },
-        {
-          "name": "audio",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": 291
-        }
-      ],
-      "outputs": [
-        {
-          "name": "VIDEO",
-          "type": "VIDEO",
-          "links": [
-            293
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "CreateVideo"
-      },
-      "widgets_values": [
-        24
-      ]
-    },
-    {
-      "id": 139,
-      "type": "LTX2_LATENTS",
-      "pos": [
-        1227.24492775369,
-        4540.078689542301
-      ],
-      "size": [
-        270,
-        302
-      ],
-      "flags": {},
-      "order": 45,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "shape": 7,
-          "type": "VAE",
-          "link": 307
-        },
-        {
-          "name": "audio_vae",
-          "shape": 7,
-          "type": "VAE",
-          "link": null
-        },
-        {
-          "name": "image",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 284
-        },
-        {
-          "name": "audio",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": null
-        },
-        {
-          "name": "ic_lora_video",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": null
-        },
-        {
-          "name": "ic_lora_mask",
-          "shape": 7,
-          "type": "MASK",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            304
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_LATENTS"
-      },
-      "widgets_values": [
-        512,
-        896,
-        145,
-        24,
-        0.8,
-        0,
-        0
-      ]
-    },
-    {
-      "id": 152,
-      "type": "LTX2_SM_KSampler",
-      "pos": [
-        1517.6209678961234,
-        4265.93131044075
-      ],
-      "size": [
-        312.341796875,
-        550
-      ],
-      "flags": {},
-      "order": 54,
-      "mode": 2,
-      "inputs": [
-        {
           "name": "model",
           "type": "MODEL",
-          "link": 303
+          "link": 376
         },
         {
           "name": "latents",
           "type": "LATENT",
-          "link": 304
+          "link": 377
         },
         {
           "name": "positive",
           "shape": 7,
           "type": "CONDITIONING",
-          "link": null
+          "link": 380
         },
         {
           "name": "negative",
           "shape": 7,
           "type": "CONDITIONING",
+          "link": 381
+        },
+        {
+          "name": "encoder",
+          "shape": 7,
+          "type": "VAE",
           "link": null
         }
       ],
@@ -1520,14 +123,14 @@
           "name": "latent",
           "type": "LATENT",
           "links": [
-            305
+            378
           ]
         },
         {
           "name": "audio_latents",
           "type": "LATENT",
           "links": [
-            306
+            379
           ]
         }
       ],
@@ -1536,7 +139,7 @@
       },
       "widgets_values": [
         8,
-        1512488288,
+        1662260332,
         "randomize",
         1,
         0,
@@ -1550,314 +153,114 @@
         1,
         0,
         -1,
-        true,
-        true,
-        false,
-        false
+        2,
+        "none"
       ]
     },
     {
-      "id": 136,
-      "type": "LTX2_DECO_AUDIO",
+      "id": 176,
+      "type": "LTX2_SM_Model",
       "pos": [
-        1952.0601705581394,
-        4382.144118038772
+        3004.534783106633,
+        2312.9256900262626
       ],
       "size": [
-        170.1041015625,
-        46
+        325.95258846700153,
+        178
       ],
       "flags": {},
-      "order": 62,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "audio_vae",
-          "type": "VAE",
-          "link": 271
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "link": 306
-        }
-      ],
-      "outputs": [
-        {
-          "name": "audio",
-          "type": "AUDIO",
-          "links": [
-            291
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_DECO_AUDIO"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 135,
-      "type": "LTX2_SM_AUDIO_VAE",
-      "pos": [
-        1881.9133648439383,
-        4191.328188694671
-      ],
-      "size": [
-        270,
-        82
-      ],
-      "flags": {},
-      "order": 11,
-      "mode": 2,
+      "order": 1,
+      "mode": 0,
       "inputs": [],
       "outputs": [
         {
-          "name": "audio_vae",
-          "type": "VAE",
+          "name": "model",
+          "type": "MODEL",
           "links": [
-            271
+            376
           ]
         }
       ],
       "properties": {
-        "Node name for S&R": "LTX2_SM_AUDIO_VAE"
-      },
-      "widgets_values": [
-        "ltx-2.3-22b-distilled_audio_vae.safetensors"
-      ]
-    },
-    {
-      "id": 150,
-      "type": "LTX2_EN_DECO_VIDEO",
-      "pos": [
-        2239.119229539762,
-        4328.005125453548
-      ],
-      "size": [
-        270,
-        102
-      ],
-      "flags": {},
-      "order": 61,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 289
-        },
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "link": 305
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": null
-        },
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "links": [
-            292
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_EN_DECO_VIDEO"
+        "Node name for S&R": "LTX2_SM_Model"
       },
       "widgets_values": [
         "none",
+        "ltx-2.3-22b-distilled-transformer-1.1-Q6_K.gguf",
+        "none",
+        "none",
+        "one_stage",
         true
       ]
     },
     {
-      "id": 138,
-      "type": "LTX2_SM_Model",
+      "id": 181,
+      "type": "LTX2_SM_ENCODER",
       "pos": [
-        1242.4679632007076,
-        4199.771002525003
+        2387.924542145957,
+        2401.721323178543
       ],
       "size": [
-        215.2029830099532,
-        188.76761362462457
+        539.0400626415803,
+        397.012461219711
       ],
       "flags": {},
-      "order": 12,
-      "mode": 2,
-      "inputs": [],
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 365
+        },
+        {
+          "name": "images",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
       "outputs": [
         {
-          "name": "model",
-          "type": "MODEL",
+          "name": "positive",
+          "type": "CONDITIONING",
           "links": [
-            303
+            368,
+            380
+          ]
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            381
           ]
         }
       ],
       "properties": {
-        "Node name for S&R": "LTX2_SM_Model"
+        "Node name for S&R": "LTX2_SM_ENCODER"
       },
       "widgets_values": [
-        "none",
-        "ltx23-transformer-distill-Q8_0.gguf",
-        "none",
-        "none",
-        "retake"
-      ]
-    },
-    {
-      "id": 140,
-      "type": "LTX2_SM_VAE",
-      "pos": [
-        2204.9293085046857,
-        4163.452727740681
-      ],
-      "size": [
-        270,
-        58
-      ],
-      "flags": {},
-      "order": 13,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "links": [
-            289,
-            307
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_VAE"
-      },
-      "widgets_values": [
-        "ltx-2.3-22b-distilled_video_vae.safetensors"
-      ]
-    },
-    {
-      "id": 75,
-      "type": "LTX2_SM_Model",
-      "pos": [
-        4466.288688664257,
-        2073.7118288990887
-      ],
-      "size": [
-        270,
-        178
-      ],
-      "flags": {},
-      "order": 14,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "links": [
-            159,
-            227
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_Model"
-      },
-      "widgets_values": [
-        "none",
-        "ltx23-transformer-distill-Q8_0.gguf",
-        "none",
-        "none",
-        "keyframe"
-      ]
-    },
-    {
-      "id": 129,
-      "type": "LTX2_SM_AUDIO_VAE",
-      "pos": [
-        4437.749637366687,
-        3185.328496844433
-      ],
-      "size": [
-        270,
-        82
-      ],
-      "flags": {},
-      "order": 15,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "audio_vae",
-          "type": "VAE",
-          "links": [
-            266
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_AUDIO_VAE"
-      },
-      "widgets_values": [
-        "ltx-2.3-22b-distilled_audio_vae.safetensors"
-      ]
-    },
-    {
-      "id": 124,
-      "type": "LTX2_SM_Model",
-      "pos": [
-        4733.398696219503,
-        3285.5406060816226
-      ],
-      "size": [
-        234.269525309016,
-        154
-      ],
-      "flags": {},
-      "order": 16,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "links": [
-            252,
-            258
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_Model"
-      },
-      "widgets_values": [
-        "none",
-        "ltx23-transformer-distill-Q8_0.gguf",
-        "none",
-        "none",
-        "audio2v"
+        false,
+        true,
+        12,
+        "INT. OVEN – DAY. Static camera from inside the oven, looking outward through the slightly fogged glass door. Warm golden light glows around freshly baked cookies. The baker’s face fills the frame, eyes wide with focus, his breath fogging the glass as he leans in. Subtle reflections move across the glass as steam rises.\nBaker (whispering dramatically): “Today… I achieve perfection.”\nHe leans even closer, nose nearly touching the glass.\n“Golden edges. Soft center. The gods themselves will smell these cookies and weep.”\nBaker: “Wait—”\n(beat)\n“Did I… forget the chocolate chips?”\nCut to side view — coworker pops into frame, chewing casually.\nCoworker (mouth full): “Nope. You forgot the sugar.”\nQuick zoom back to the baker’s horrified face, pressed against the oven door, as cookies deflate behind the glass. Steam drifts upward in slow motion.\npixar style acting and timing",
+        "blurry, out of focus,subtitles, overexposed, underexposed, low contrast, washed out colors, excessive noise, grainy texture, poor lighting, flickering, motion blur, distorted proportions, unnatural skin tones, deformed facial features, asymmetrical face, missing facial features, extra limbs, disfigured hands, wrong hand count, artifacts around text, unreadable text on shirt or hat, missing microphone, misplaced microphone, inconsistent perspective, camera shake, incorrect depth of field, background too sharp, background clutter, distracting reflections, harsh shadows, inconsistent lighting direction, color banding, cartoonish rendering, 3D CGI look, unrealistic materials, uncanny valley effect, incorrect ethnicity, wrong gender, exaggerated expressions, smiling, laughing, exaggerated sadness, wrong gaze direction, eyes looking at camera, mismatched lip sync, silent or muted audio, distorted voice, robotic voice, echo, background noise, off-sync audio, missing sniff sounds, incorrect dialogue, added dialogue, repetitive speech, jittery movement, awkward pauses, incorrect timing, unnatural transitions, inconsistent framing, tilted camera, missing door or shelves, missing shallow depth of field, flat lighting, inconsistent tone, cinematic oversaturation, stylized filters, or AI artifacts."
       ]
     },
     {
       "id": 102,
       "type": "LTX2_LATENTS",
       "pos": [
-        954.6622844497183,
-        3414.490002591839
+        3019.3271246300524,
+        2564.824600630617
       ],
       "size": [
-        270,
-        302
+        301.6000599604881,
+        329.3979424201766
       ],
       "flags": {},
-      "order": 17,
+      "order": 2,
       "mode": 0,
       "inputs": [
         {
@@ -1867,7 +270,7 @@
           "link": null
         },
         {
-          "name": "audio_vae",
+          "name": "a_encoder",
           "shape": 7,
           "type": "VAE",
           "link": null
@@ -1895,6 +298,12 @@
           "shape": 7,
           "type": "MASK",
           "link": null
+        },
+        {
+          "name": "audio_vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": null
         }
       ],
       "outputs": [
@@ -1902,7 +311,7 @@
           "name": "latent",
           "type": "LATENT",
           "links": [
-            348
+            377
           ]
         }
       ],
@@ -1912,7 +321,7 @@
       "widgets_values": [
         768,
         512,
-        81,
+        241,
         24,
         0.8,
         0,
@@ -1920,1827 +329,72 @@
       ]
     },
     {
-      "id": 10,
-      "type": "LTX2_SM_AUDIO_VAE",
+      "id": 180,
+      "type": "LTX2_DECO_VIDEO",
       "pos": [
-        1629.3415436435557,
-        3408.731097363311
+        4089.016328474538,
+        2321.736254448085
       ],
       "size": [
-        270,
-        82
+        210,
+        85.44250233599041
       ],
       "flags": {},
-      "order": 18,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "audio_vae",
-          "type": "VAE",
-          "links": [
-            212
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_AUDIO_VAE"
-      },
-      "widgets_values": [
-        "ltx-2.3-22b-distilled_audio_vae.safetensors"
-      ]
-    },
-    {
-      "id": 12,
-      "type": "LTX2_SM_VAE",
-      "pos": [
-        1753.3395624794803,
-        3138.6971429403625
-      ],
-      "size": [
-        270,
-        58
-      ],
-      "flags": {},
-      "order": 19,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "links": [
-            286
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_VAE"
-      },
-      "widgets_values": [
-        "ltx-2.3-22b-distilled_video_vae.safetensors"
-      ]
-    },
-    {
-      "id": 149,
-      "type": "LTX2_EN_DECO_VIDEO",
-      "pos": [
-        2163.6016466698684,
-        3185.9202396490714
-      ],
-      "size": [
-        270,
-        102
-      ],
-      "flags": {},
-      "order": 50,
+      "order": 9,
       "mode": 0,
       "inputs": [
         {
-          "name": "vae",
+          "name": "decoder",
           "type": "VAE",
-          "link": 286
+          "link": 363
         },
         {
           "name": "latent",
           "type": "LATENT",
-          "link": 347
+          "link": 378
         }
       ],
       "outputs": [
         {
-          "name": "latent",
-          "type": "LATENT",
-          "links": []
-        },
-        {
           "name": "images",
           "type": "IMAGE",
           "links": [
-            288
+            364
           ]
         }
       ],
       "properties": {
-        "Node name for S&R": "LTX2_EN_DECO_VIDEO"
+        "Node name for S&R": "LTX2_DECO_VIDEO"
       },
       "widgets_values": [
-        "none",
         true
-      ]
-    },
-    {
-      "id": 146,
-      "type": "GetVideoComponents",
-      "pos": [
-        1245.4341627396495,
-        4944.295439474391
-      ],
-      "size": [
-        140,
-        66
-      ],
-      "flags": {},
-      "order": 36,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "video",
-          "type": "VIDEO",
-          "link": 300
-        }
-      ],
-      "outputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "links": [
-            284,
-            297
-          ]
-        },
-        {
-          "name": "audio",
-          "type": "AUDIO",
-          "links": []
-        },
-        {
-          "name": "fps",
-          "type": "FLOAT",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "GetVideoComponents"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 144,
-      "type": "LoadVideo",
-      "pos": [
-        693.7888427698084,
-        4185.399377019968
-      ],
-      "size": [
-        478,
-        923.7777777777778
-      ],
-      "flags": {},
-      "order": 20,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "VIDEO",
-          "type": "VIDEO",
-          "links": [
-            300
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoadVideo"
-      },
-      "widgets_values": [
-        "微信视频2026-03-17_143222_272.mp4",
-        "image"
-      ]
-    },
-    {
-      "id": 151,
-      "type": "GetImageSize",
-      "pos": [
-        1445.9691070388922,
-        5004.0288492875325
-      ],
-      "size": [
-        140,
-        66
-      ],
-      "flags": {},
-      "order": 46,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 297
-        }
-      ],
-      "outputs": [
-        {
-          "name": "width",
-          "type": "INT",
-          "links": []
-        },
-        {
-          "name": "height",
-          "type": "INT",
-          "links": []
-        },
-        {
-          "name": "batch_size",
-          "type": "INT",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "GetImageSize"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 97,
-      "type": "LTX2_LATENTS",
-      "pos": [
-        2712.9813842730214,
-        3438.315264955068
-      ],
-      "size": [
-        270,
-        302
-      ],
-      "flags": {},
-      "order": 37,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "shape": 7,
-          "type": "VAE",
-          "link": 204
-        },
-        {
-          "name": "audio_vae",
-          "shape": 7,
-          "type": "VAE",
-          "link": null
-        },
-        {
-          "name": "image",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 205
-        },
-        {
-          "name": "audio",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": null
-        },
-        {
-          "name": "ic_lora_video",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": null
-        },
-        {
-          "name": "ic_lora_mask",
-          "shape": 7,
-          "type": "MASK",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            203
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_LATENTS"
-      },
-      "widgets_values": [
-        768,
-        512,
-        81,
-        24,
-        0.8,
-        0,
-        0
-      ]
-    },
-    {
-      "id": 46,
-      "type": "LTX2_SM_Model",
-      "pos": [
-        2701.700842658206,
-        3183.5365423306152
-      ],
-      "size": [
-        270,
-        178
-      ],
-      "flags": {},
-      "order": 21,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "links": [
-            98,
-            176
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_Model"
-      },
-      "widgets_values": [
-        "none",
-        "ltx23-transformer-distill-Q8_0.gguf",
-        "none",
-        "none",
-        "two_stages"
-      ]
-    },
-    {
-      "id": 49,
-      "type": "LTX2_SM_VAE",
-      "pos": [
-        3006.029187767012,
-        3141.8095801483983
-      ],
-      "size": [
-        270,
-        58
-      ],
-      "flags": {},
-      "order": 22,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "links": [
-            197,
-            199,
-            204
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_VAE"
-      },
-      "widgets_values": [
-        "ltx-2.3-22b-distilled_video_vae.safetensors"
-      ]
-    },
-    {
-      "id": 53,
-      "type": "LTX2_SM_AUDIO_VAE",
-      "pos": [
-        3378.25644108239,
-        3473.064177473631
-      ],
-      "size": [
-        352.7369144874474,
-        76.98565120695866
-      ],
-      "flags": {},
-      "order": 23,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "audio_vae",
-          "type": "VAE",
-          "links": [
-            218
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_AUDIO_VAE"
-      },
-      "widgets_values": [
-        "ltx-2.3-22b-distilled_audio_vae.safetensors"
-      ]
-    },
-    {
-      "id": 95,
-      "type": "LTX2_EN_DECO_VIDEO",
-      "pos": [
-        3391.4906406548703,
-        3242.1956324332195
-      ],
-      "size": [
-        270,
-        102
-      ],
-      "flags": {},
-      "order": 55,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 197
-        },
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "link": 196
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            200
-          ]
-        },
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_EN_DECO_VIDEO"
-      },
-      "widgets_values": [
-        "ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
-        true
-      ]
-    },
-    {
-      "id": 96,
-      "type": "LTX2_EN_DECO_VIDEO",
-      "pos": [
-        3737.718561327861,
-        3152.177709607797
-      ],
-      "size": [
-        270,
-        102
-      ],
-      "flags": {},
-      "order": 72,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 199
-        },
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "link": 201
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": []
-        },
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "links": [
-            202
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_EN_DECO_VIDEO"
-      },
-      "widgets_values": [
-        "none",
-        true
-      ]
-    },
-    {
-      "id": 52,
-      "type": "LTX2_SM_StageTwo",
-      "pos": [
-        3752.4440888234994,
-        3355.2462154991595
-      ],
-      "size": [
-        194.68359375,
-        66
-      ],
-      "flags": {},
-      "order": 63,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 98
-        },
-        {
-          "name": "latents",
-          "type": "LATENT",
-          "link": 200
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "link": 179
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            201
-          ]
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "links": [
-            206
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_StageTwo"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 99,
-      "type": "LTX2_DECO_AUDIO",
-      "pos": [
-        3970.4425956771456,
-        3369.512784041634
-      ],
-      "size": [
-        170.1041015625,
-        46
-      ],
-      "flags": {},
-      "order": 73,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "audio_vae",
-          "type": "VAE",
-          "link": 218
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "link": 206
-        }
-      ],
-      "outputs": [
-        {
-          "name": "audio",
-          "type": "AUDIO",
-          "links": [
-            207
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_DECO_AUDIO"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 51,
-      "type": "CreateVideo",
-      "pos": [
-        4082.5034388995805,
-        3172.9114036676847
-      ],
-      "size": [
-        270,
-        78
-      ],
-      "flags": {},
-      "order": 80,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 202
-        },
-        {
-          "name": "audio",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": 207
-        }
-      ],
-      "outputs": [
-        {
-          "name": "VIDEO",
-          "type": "VIDEO",
-          "links": [
-            105
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "CreateVideo"
-      },
-      "widgets_values": [
-        24
-      ]
-    },
-    {
-      "id": 56,
-      "type": "SaveVideo",
-      "pos": [
-        3909.248361572259,
-        3600.9554269257355
-      ],
-      "size": [
-        402.9565561233294,
-        421.50869595464155
-      ],
-      "flags": {},
-      "order": 85,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "video",
-          "type": "VIDEO",
-          "link": 105
-        }
-      ],
-      "outputs": [],
-      "properties": {},
-      "widgets_values": [
-        "video/ComfyUI",
-        "auto",
-        "auto"
-      ]
-    },
-    {
-      "id": 158,
-      "type": "LTX2_SM_AUDIO_VAE",
-      "pos": [
-        3435.496534137823,
-        4554.685846938774
-      ],
-      "size": [
-        352.7369144874474,
-        76.98565120695866
-      ],
-      "flags": {},
-      "order": 24,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "audio_vae",
-          "type": "VAE",
-          "links": [
-            324
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_AUDIO_VAE"
-      },
-      "widgets_values": [
-        "ltx-2.3-22b-distilled_audio_vae.safetensors"
-      ]
-    },
-    {
-      "id": 159,
-      "type": "LTX2_EN_DECO_VIDEO",
-      "pos": [
-        3448.7307337103025,
-        4323.8173018983625
-      ],
-      "size": [
-        270,
-        102
-      ],
-      "flags": {},
-      "order": 48,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 317
-        },
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "link": 318
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            322
-          ]
-        },
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_EN_DECO_VIDEO"
-      },
-      "widgets_values": [
-        "ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
-        true
-      ]
-    },
-    {
-      "id": 160,
-      "type": "LTX2_EN_DECO_VIDEO",
-      "pos": [
-        3794.958654383294,
-        4233.799379072941
-      ],
-      "size": [
-        270,
-        102
-      ],
-      "flags": {},
-      "order": 64,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 319
-        },
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "link": 320
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": []
-        },
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "links": [
-            326
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_EN_DECO_VIDEO"
-      },
-      "widgets_values": [
-        "none",
-        true
-      ]
-    },
-    {
-      "id": 161,
-      "type": "LTX2_SM_StageTwo",
-      "pos": [
-        3809.6841818789326,
-        4436.867884964303
-      ],
-      "size": [
-        194.68359375,
-        66
-      ],
-      "flags": {},
-      "order": 56,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 321
-        },
-        {
-          "name": "latents",
-          "type": "LATENT",
-          "link": 322
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "link": 323
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            320
-          ]
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "links": [
-            325
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_StageTwo"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 163,
-      "type": "CreateVideo",
-      "pos": [
-        4139.743531955014,
-        4254.533073132828
-      ],
-      "size": [
-        270,
-        78
-      ],
-      "flags": {},
-      "order": 74,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 326
-        },
-        {
-          "name": "audio",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": 327
-        }
-      ],
-      "outputs": [
-        {
-          "name": "VIDEO",
-          "type": "VIDEO",
-          "links": [
-            328
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "CreateVideo"
-      },
-      "widgets_values": [
-        24
-      ]
-    },
-    {
-      "id": 164,
-      "type": "SaveVideo",
-      "pos": [
-        3966.488454627692,
-        4682.577096390879
-      ],
-      "size": [
-        402.9565561233294,
-        421.50869595464155
-      ],
-      "flags": {},
-      "order": 81,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "video",
-          "type": "VIDEO",
-          "link": 328
-        }
-      ],
-      "outputs": [],
-      "properties": {},
-      "widgets_values": [
-        "video/ComfyUI",
-        "auto",
-        "auto"
-      ]
-    },
-    {
-      "id": 156,
-      "type": "LTX2_SM_VAE",
-      "pos": [
-        3063.269280822444,
-        4223.431249613542
-      ],
-      "size": [
-        270,
-        58
-      ],
-      "flags": {},
-      "order": 25,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "links": [
-            317,
-            319
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_VAE"
-      },
-      "widgets_values": [
-        "ltx-2.3-22b-distilled_video_vae.safetensors"
-      ]
-    },
-    {
-      "id": 155,
-      "type": "LTX2_SM_Model",
-      "pos": [
-        2758.9409357136383,
-        4265.158211795758
-      ],
-      "size": [
-        270,
-        178
-      ],
-      "flags": {},
-      "order": 26,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "links": [
-            315,
-            321
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_Model"
-      },
-      "widgets_values": [
-        "none",
-        "ltx23-transformer-distill-Q8_0.gguf",
-        "none",
-        "none",
-        "twostages_hq"
-      ]
-    },
-    {
-      "id": 90,
-      "type": "LTX2_SM_KSampler",
-      "pos": [
-        3028.6821952950845,
-        3331.161043872301
-      ],
-      "size": [
-        312.341796875,
-        550
-      ],
-      "flags": {},
-      "order": 47,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 176
-        },
-        {
-          "name": "latents",
-          "type": "LATENT",
-          "link": 203
-        },
-        {
-          "name": "positive",
-          "shape": 7,
-          "type": "CONDITIONING",
-          "link": 248
-        },
-        {
-          "name": "negative",
-          "shape": 7,
-          "type": "CONDITIONING",
-          "link": 249
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            196
-          ]
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "links": [
-            179
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_KSampler"
-      },
-      "widgets_values": [
-        8,
-        896657510,
-        "fixed",
-        1,
-        0,
-        0,
-        1,
-        0,
-        -1,
-        1,
-        0,
-        0,
-        1,
-        0,
-        -1,
-        true,
-        false,
-        false,
-        false
-      ]
-    },
-    {
-      "id": 157,
-      "type": "LTX2_SM_KSampler",
-      "pos": [
-        3085.9222883505167,
-        4412.782713337444
-      ],
-      "size": [
-        312.341796875,
-        550
-      ],
-      "flags": {},
-      "order": 38,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 315
-        },
-        {
-          "name": "latents",
-          "type": "LATENT",
-          "link": 316
-        },
-        {
-          "name": "positive",
-          "shape": 7,
-          "type": "CONDITIONING",
-          "link": null
-        },
-        {
-          "name": "negative",
-          "shape": 7,
-          "type": "CONDITIONING",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            318
-          ]
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "links": [
-            323
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_KSampler"
-      },
-      "widgets_values": [
-        8,
-        896657510,
-        "fixed",
-        1,
-        0,
-        0,
-        1,
-        0,
-        -1,
-        1,
-        0,
-        0,
-        1,
-        0,
-        -1,
-        true,
-        true,
-        false,
-        false
-      ]
-    },
-    {
-      "id": 162,
-      "type": "LTX2_DECO_AUDIO",
-      "pos": [
-        4198.580580043832,
-        4553.268664058923
-      ],
-      "size": [
-        170.1041015625,
-        46
-      ],
-      "flags": {},
-      "order": 65,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "audio_vae",
-          "type": "VAE",
-          "link": 324
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "link": 325
-        }
-      ],
-      "outputs": [
-        {
-          "name": "audio",
-          "type": "AUDIO",
-          "links": [
-            327
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_DECO_AUDIO"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 154,
-      "type": "LTX2_LATENTS",
-      "pos": [
-        2770.2214773284536,
-        4519.9369344202105
-      ],
-      "size": [
-        270,
-        302
-      ],
-      "flags": {},
-      "order": 27,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "shape": 7,
-          "type": "VAE",
-          "link": null
-        },
-        {
-          "name": "audio_vae",
-          "shape": 7,
-          "type": "VAE",
-          "link": null
-        },
-        {
-          "name": "image",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": null
-        },
-        {
-          "name": "audio",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": null
-        },
-        {
-          "name": "ic_lora_video",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": null
-        },
-        {
-          "name": "ic_lora_mask",
-          "shape": 7,
-          "type": "MASK",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            316
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_LATENTS"
-      },
-      "widgets_values": [
-        768,
-        512,
-        121,
-        24,
-        1,
-        0,
-        0
-      ]
-    },
-    {
-      "id": 165,
-      "type": "LTX2_SM_AUDIO_VAE",
-      "pos": [
-        3435.729207856246,
-        5789.416667938373
-      ],
-      "size": [
-        352.7369144874474,
-        76.98565120695866
-      ],
-      "flags": {},
-      "order": 28,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "audio_vae",
-          "type": "VAE",
-          "links": [
-            341
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_AUDIO_VAE"
-      },
-      "widgets_values": [
-        "ltx-2.3-22b-distilled_audio_vae.safetensors"
-      ]
-    },
-    {
-      "id": 166,
-      "type": "LTX2_EN_DECO_VIDEO",
-      "pos": [
-        3448.963407428726,
-        5558.548122897962
-      ],
-      "size": [
-        270,
-        102
-      ],
-      "flags": {},
-      "order": 49,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 329
-        },
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "link": 330
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            334
-          ]
-        },
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_EN_DECO_VIDEO"
-      },
-      "widgets_values": [
-        "ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
-        true
-      ]
-    },
-    {
-      "id": 167,
-      "type": "LTX2_EN_DECO_VIDEO",
-      "pos": [
-        3795.191328101717,
-        5468.53020007254
-      ],
-      "size": [
-        270,
-        102
-      ],
-      "flags": {},
-      "order": 66,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 331
-        },
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "link": 332
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": []
-        },
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "links": [
-            336
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_EN_DECO_VIDEO"
-      },
-      "widgets_values": [
-        "none",
-        true
-      ]
-    },
-    {
-      "id": 168,
-      "type": "LTX2_SM_StageTwo",
-      "pos": [
-        3809.9168555973556,
-        5671.598705963902
-      ],
-      "size": [
-        194.68359375,
-        66
-      ],
-      "flags": {},
-      "order": 57,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 333
-        },
-        {
-          "name": "latents",
-          "type": "LATENT",
-          "link": 334
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "link": 335
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            332
-          ]
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "links": [
-            342
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_StageTwo"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 169,
-      "type": "CreateVideo",
-      "pos": [
-        4139.976205673439,
-        5489.263894132427
-      ],
-      "size": [
-        270,
-        78
-      ],
-      "flags": {},
-      "order": 75,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 336
-        },
-        {
-          "name": "audio",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": 337
-        }
-      ],
-      "outputs": [
-        {
-          "name": "VIDEO",
-          "type": "VIDEO",
-          "links": [
-            338
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "CreateVideo"
-      },
-      "widgets_values": [
-        24
-      ]
-    },
-    {
-      "id": 170,
-      "type": "SaveVideo",
-      "pos": [
-        3966.7211283461143,
-        5917.307917390478
-      ],
-      "size": [
-        402.9565561233294,
-        421.50869595464155
-      ],
-      "flags": {},
-      "order": 82,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "video",
-          "type": "VIDEO",
-          "link": 338
-        }
-      ],
-      "outputs": [],
-      "properties": {},
-      "widgets_values": [
-        "video/ComfyUI",
-        "auto",
-        "auto"
-      ]
-    },
-    {
-      "id": 171,
-      "type": "LTX2_SM_VAE",
-      "pos": [
-        3063.5019545408677,
-        5458.162070613141
-      ],
-      "size": [
-        270,
-        58
-      ],
-      "flags": {},
-      "order": 29,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "links": [
-            329,
-            331
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_VAE"
-      },
-      "widgets_values": [
-        "ltx-2.3-22b-distilled_video_vae.safetensors"
-      ]
-    },
-    {
-      "id": 173,
-      "type": "LTX2_SM_KSampler",
-      "pos": [
-        3086.154962068941,
-        5647.513534337043
-      ],
-      "size": [
-        312.341796875,
-        550
-      ],
-      "flags": {},
-      "order": 39,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 339
-        },
-        {
-          "name": "latents",
-          "type": "LATENT",
-          "link": 340
-        },
-        {
-          "name": "positive",
-          "shape": 7,
-          "type": "CONDITIONING",
-          "link": null
-        },
-        {
-          "name": "negative",
-          "shape": 7,
-          "type": "CONDITIONING",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            330
-          ]
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "links": [
-            335
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_KSampler"
-      },
-      "widgets_values": [
-        8,
-        896657510,
-        "fixed",
-        1,
-        0,
-        0,
-        1,
-        0,
-        -1,
-        1,
-        0,
-        0,
-        1,
-        0,
-        -1,
-        true,
-        true,
-        false,
-        false
-      ]
-    },
-    {
-      "id": 174,
-      "type": "LTX2_DECO_AUDIO",
-      "pos": [
-        4198.813253762257,
-        5787.999485058522
-      ],
-      "size": [
-        170.1041015625,
-        46
-      ],
-      "flags": {},
-      "order": 67,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "audio_vae",
-          "type": "VAE",
-          "link": 341
-        },
-        {
-          "name": "audio_latents",
-          "type": "LATENT",
-          "link": 342
-        }
-      ],
-      "outputs": [
-        {
-          "name": "audio",
-          "type": "AUDIO",
-          "links": [
-            337
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_DECO_AUDIO"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 175,
-      "type": "LTX2_LATENTS",
-      "pos": [
-        2770.4541510468775,
-        5754.6677554198095
-      ],
-      "size": [
-        270,
-        302
-      ],
-      "flags": {},
-      "order": 30,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "vae",
-          "shape": 7,
-          "type": "VAE",
-          "link": null
-        },
-        {
-          "name": "audio_vae",
-          "shape": 7,
-          "type": "VAE",
-          "link": null
-        },
-        {
-          "name": "image",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": null
-        },
-        {
-          "name": "audio",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": null
-        },
-        {
-          "name": "ic_lora_video",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": null
-        },
-        {
-          "name": "ic_lora_mask",
-          "shape": 7,
-          "type": "MASK",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            340
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_LATENTS"
-      },
-      "widgets_values": [
-        768,
-        512,
-        121,
-        24,
-        1,
-        0,
-        0
-      ]
-    },
-    {
-      "id": 172,
-      "type": "LTX2_SM_Model",
-      "pos": [
-        2768.75794772665,
-        5509.097171304965
-      ],
-      "size": [
-        270,
-        178
-      ],
-      "flags": {},
-      "order": 31,
-      "mode": 2,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "links": [
-            333,
-            339
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_Model"
-      },
-      "widgets_values": [
-        "none",
-        "ltx23-transformer-distill-Q8_0.gguf",
-        "none",
-        "none",
-        "twostages_hq"
-      ]
-    },
-    {
-      "id": 9,
-      "type": "SaveVideo",
-      "pos": [
-        1919.4200458742775,
-        3518.5966100364767
-      ],
-      "size": [
-        691.0216190664546,
-        558.6810793776365
-      ],
-      "flags": {},
-      "order": 68,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "video",
-          "type": "VIDEO",
-          "link": 18
-        }
-      ],
-      "outputs": [],
-      "properties": {},
-      "widgets_values": [
-        "video/ComfyUI",
-        "auto",
-        "auto"
       ]
     },
     {
       "id": 8,
       "type": "CreateVideo",
       "pos": [
-        2199.0759765455805,
-        3343.408408399984
+        4379.22104159205,
+        2329.8407962111414
       ],
       "size": [
         270,
-        78
+        103.453125
       ],
       "flags": {},
-      "order": 58,
+      "order": 11,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 288
+          "link": 364
         },
         {
           "name": "audio",
           "shape": 7,
           "type": "AUDIO",
-          "link": 213
+          "link": 372
         }
       ],
       "outputs": [
@@ -3760,118 +414,168 @@
       ]
     },
     {
-      "id": 176,
-      "type": "LTX2_SM_Model",
+      "id": 182,
+      "type": "LTX2_DECO_AUDIO",
       "pos": [
-        901.8749396399621,
-        3158.3194157728085
+        4126.843675760134,
+        2450.8652484233867
       ],
       "size": [
-        270,
-        154
+        198.38556671733878,
+        80.23545453165161
       ],
       "flags": {},
-      "order": 32,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "links": [
-            349
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LTX2_SM_Model"
-      },
-      "widgets_values": [
-        "none",
-        "ltx23-transformer-distill-Q8_0.gguf",
-        "none",
-        "none",
-        "one_stage"
-      ]
-    },
-    {
-      "id": 177,
-      "type": "LTX2_SM_KSampler",
-      "pos": [
-        1292.7563875315839,
-        3190.3233763919466
-      ],
-      "size": [
-        312.341796875,
-        550
-      ],
-      "flags": {},
-      "order": 40,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {
-          "name": "model",
-          "type": "MODEL",
-          "link": 349
-        },
-        {
-          "name": "latents",
-          "type": "LATENT",
-          "link": 348
-        },
-        {
-          "name": "positive",
-          "shape": 7,
-          "type": "CONDITIONING",
-          "link": null
-        },
-        {
-          "name": "negative",
-          "shape": 7,
-          "type": "CONDITIONING",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "links": [
-            347
-          ]
+          "name": "a_decoder",
+          "type": "VAE",
+          "link": 371
         },
         {
           "name": "audio_latents",
           "type": "LATENT",
+          "link": 379
+        }
+      ],
+      "outputs": [
+        {
+          "name": "audio",
+          "type": "AUDIO",
           "links": [
-            346
+            372
           ]
         }
       ],
       "properties": {
-        "Node name for S&R": "LTX2_SM_KSampler"
+        "Node name for S&R": "LTX2_DECO_AUDIO"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 12,
+      "type": "LTX2_SM_VAE",
+      "pos": [
+        3719.028342164868,
+        2312.908884093374
+      ],
+      "size": [
+        317.5493739681215,
+        106.21496289772722
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "decoder",
+          "type": "VAE",
+          "links": [
+            363
+          ]
+        },
+        {
+          "name": "encoder",
+          "type": "VAE",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LTX2_SM_VAE"
       },
       "widgets_values": [
-        8,
-        632689289,
-        "randomize",
-        1,
-        0,
-        0,
-        1,
-        0,
-        -1,
-        1,
-        0,
-        0,
-        1,
-        0,
-        -1,
-        true,
-        8,
-        true,
-        false
+        "ltx-2.3-22b-distilled_video_vae.safetensors"
       ]
+    },
+    {
+      "id": 10,
+      "type": "LTX2_SM_AUDIO_VAE",
+      "pos": [
+        3704.9611090666094,
+        2472.8222606222143
+      ],
+      "size": [
+        364.1814341384379,
+        97.70068498241744
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "a_decoder",
+          "type": "VAE",
+          "links": [
+            371
+          ]
+        },
+        {
+          "name": "a_encoder",
+          "type": "VAE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LTX2_SM_AUDIO_VAE"
+      },
+      "widgets_values": [
+        "ltx-2.3-22b-distilled_audio_vae.safetensors"
+      ]
+    },
+    {
+      "id": 9,
+      "type": "SaveVideo",
+      "pos": [
+        3920.798247921782,
+        2614.683838699254
+      ],
+      "size": [
+        768.2069541144979,
+        610.1379694096653
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 18
+        }
+      ],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "video/ComfyUI",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 120,
+      "type": "Note",
+      "pos": [
+        1845.7429740336179,
+        3056.9652528385027
+      ],
+      "size": [
+        1121.96875,
+        339.078125
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 2,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "cfg_scale\tClassifier-Free Guidance scale. Higher values make the output adhere more strongly to the text prompt. Typical values: 2.0–5.0. Set to 1.0 to disable.\nstg_scale\tSpatio-Temporal Guidance scale. Controls perturbation-based guidance for improved temporal coherence. Typical values: 0.5–1.5. Set to 0.0 to disable.\nstg_blocks\tWhich transformer blocks to perturb for STG (e.g., [29] for the last block). Set to [] to disable STG.\nrescale_scale\tRescales the guided prediction to match the variance of the conditional prediction. Helps prevent over-saturation. Typical values: 0.5–0.7. Set to 0.0 to disable.\nmodality_scale\tModality CFG scale. Steers the model away from unsynced video and audio results, improving audio-visual coherence. Set to 1.0 to disable.\nskip_step\tSkip guidance every N steps. Can speed up inference with minimal quality loss. Set to 0 to disable (never skip).\n# examples \nvideo_guider_params = MultiModalGuiderParams(\n    cfg_scale=3.0,\n    stg_scale=1.0,\n    rescale_scale=0.7,\n    modality_scale=3.0,\n    skip_step=0,\n    stg_blocks=[29],\n)\n\naudio_guider_params = MultiModalGuiderParams(\n    cfg_scale=7.0,\n    stg_scale=1.0,\n    rescale_scale=0.7,\n    modality_scale=3.0,\n    skip_step=0,\n    stg_blocks=[29],\n)"
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
     }
   ],
   "links": [
@@ -3884,861 +588,109 @@
       "VIDEO"
     ],
     [
-      44,
+      363,
+      12,
+      0,
+      180,
+      0,
+      "VAE"
+    ],
+    [
+      364,
+      180,
+      0,
+      8,
+      0,
+      "IMAGE"
+    ],
+    [
+      365,
       14,
       0,
-      22,
+      181,
       0,
       "CLIP"
     ],
     [
-      47,
-      22,
+      368,
+      181,
       0,
       23,
       0,
       "CONDITIONING"
     ],
     [
-      48,
-      22,
-      1,
-      24,
-      0,
-      "CONDITIONING"
-    ],
-    [
-      98,
-      46,
-      0,
-      52,
-      0,
-      "MODEL"
-    ],
-    [
-      105,
-      51,
-      0,
-      56,
-      0,
-      "VIDEO"
-    ],
-    [
-      159,
-      75,
-      0,
-      82,
-      0,
-      "MODEL"
-    ],
-    [
-      167,
-      85,
-      0,
-      86,
-      0,
-      "VIDEO"
-    ],
-    [
-      176,
-      46,
-      0,
-      90,
-      0,
-      "MODEL"
-    ],
-    [
-      179,
-      90,
-      1,
-      52,
-      2,
-      "LATENT"
-    ],
-    [
-      196,
-      90,
-      0,
-      95,
-      1,
-      "LATENT"
-    ],
-    [
-      197,
-      49,
-      0,
-      95,
-      0,
-      "VAE"
-    ],
-    [
-      199,
-      49,
-      0,
-      96,
-      0,
-      "VAE"
-    ],
-    [
-      200,
-      95,
-      0,
-      52,
-      1,
-      "LATENT"
-    ],
-    [
-      201,
-      52,
-      0,
-      96,
-      1,
-      "LATENT"
-    ],
-    [
-      202,
-      96,
-      1,
-      51,
-      0,
-      "IMAGE"
-    ],
-    [
-      203,
-      97,
-      0,
-      90,
-      1,
-      "LATENT"
-    ],
-    [
-      204,
-      49,
-      0,
-      97,
-      0,
-      "VAE"
-    ],
-    [
-      205,
-      98,
-      0,
-      97,
-      2,
-      "IMAGE"
-    ],
-    [
-      206,
-      52,
-      1,
-      99,
-      1,
-      "LATENT"
-    ],
-    [
-      207,
-      99,
-      0,
-      51,
-      1,
-      "AUDIO"
-    ],
-    [
-      212,
+      371,
       10,
       0,
-      101,
+      182,
       0,
       "VAE"
     ],
     [
-      213,
-      101,
+      372,
+      182,
       0,
       8,
       1,
       "AUDIO"
     ],
     [
-      215,
-      82,
-      1,
-      103,
-      1,
-      "LATENT"
-    ],
-    [
-      216,
-      83,
-      0,
-      103,
-      0,
-      "VAE"
-    ],
-    [
-      217,
-      103,
-      0,
-      85,
-      1,
-      "AUDIO"
-    ],
-    [
-      218,
-      53,
-      0,
-      99,
-      0,
-      "VAE"
-    ],
-    [
-      220,
-      80,
-      0,
-      104,
-      0,
-      "VAE"
-    ],
-    [
-      222,
-      112,
-      0,
-      104,
-      2,
-      "IMAGE"
-    ],
-    [
-      227,
-      75,
-      0,
-      113,
-      0,
-      "MODEL"
-    ],
-    [
-      228,
-      104,
-      0,
-      113,
-      1,
-      "LATENT"
-    ],
-    [
-      231,
-      113,
-      0,
-      114,
-      1,
-      "LATENT"
-    ],
-    [
-      232,
-      80,
-      0,
-      114,
-      0,
-      "VAE"
-    ],
-    [
-      233,
-      114,
-      0,
-      82,
-      1,
-      "LATENT"
-    ],
-    [
-      234,
-      82,
-      0,
-      115,
-      1,
-      "LATENT"
-    ],
-    [
-      235,
-      115,
-      1,
-      85,
-      0,
-      "IMAGE"
-    ],
-    [
-      236,
-      80,
-      0,
-      115,
-      0,
-      "VAE"
-    ],
-    [
-      241,
-      113,
-      1,
-      82,
-      2,
-      "LATENT"
-    ],
-    [
-      244,
-      105,
-      0,
-      112,
-      0,
-      "IMAGE"
-    ],
-    [
-      246,
-      118,
-      0,
-      112,
-      1,
-      "IMAGE"
-    ],
-    [
-      248,
-      22,
-      0,
-      90,
-      2,
-      "CONDITIONING"
-    ],
-    [
-      249,
-      22,
-      1,
-      90,
-      3,
-      "CONDITIONING"
-    ],
-    [
-      252,
-      124,
-      0,
-      123,
-      0,
-      "MODEL"
-    ],
-    [
-      253,
-      121,
-      0,
-      123,
-      1,
-      "LATENT"
-    ],
-    [
-      254,
-      125,
-      0,
-      126,
-      0,
-      "VAE"
-    ],
-    [
-      255,
-      123,
-      0,
-      126,
-      1,
-      "LATENT"
-    ],
-    [
-      256,
-      125,
-      0,
-      127,
-      0,
-      "VAE"
-    ],
-    [
-      257,
-      128,
-      0,
-      127,
-      1,
-      "LATENT"
-    ],
-    [
-      258,
-      124,
-      0,
-      128,
-      0,
-      "MODEL"
-    ],
-    [
-      259,
-      126,
-      0,
-      128,
-      1,
-      "LATENT"
-    ],
-    [
-      263,
-      127,
-      1,
-      131,
-      0,
-      "IMAGE"
-    ],
-    [
-      265,
-      131,
-      0,
-      132,
-      0,
-      "VIDEO"
-    ],
-    [
-      266,
-      129,
-      0,
-      121,
-      1,
-      "VAE"
-    ],
-    [
-      267,
-      133,
-      0,
-      121,
-      3,
-      "AUDIO"
-    ],
-    [
-      268,
-      133,
-      0,
-      131,
-      1,
-      "AUDIO"
-    ],
-    [
-      269,
-      123,
-      1,
-      128,
-      2,
-      "LATENT"
-    ],
-    [
-      271,
-      135,
-      0,
-      136,
-      0,
-      "VAE"
-    ],
-    [
-      277,
-      22,
-      0,
-      123,
-      2,
-      "CONDITIONING"
-    ],
-    [
-      278,
-      22,
-      1,
-      123,
-      3,
-      "CONDITIONING"
-    ],
-    [
-      279,
-      22,
-      0,
-      113,
-      2,
-      "CONDITIONING"
-    ],
-    [
-      280,
-      22,
-      1,
-      113,
-      3,
-      "CONDITIONING"
-    ],
-    [
-      284,
-      146,
-      0,
-      139,
-      2,
-      "IMAGE"
-    ],
-    [
-      286,
-      12,
-      0,
-      149,
-      0,
-      "VAE"
-    ],
-    [
-      288,
-      149,
-      1,
-      8,
-      0,
-      "IMAGE"
-    ],
-    [
-      289,
-      140,
-      0,
-      150,
-      0,
-      "VAE"
-    ],
-    [
-      291,
-      136,
-      0,
-      147,
-      1,
-      "AUDIO"
-    ],
-    [
-      292,
-      150,
-      1,
-      147,
-      0,
-      "IMAGE"
-    ],
-    [
-      293,
-      147,
-      0,
-      142,
-      0,
-      "VIDEO"
-    ],
-    [
-      297,
-      146,
-      0,
-      151,
-      0,
-      "IMAGE"
-    ],
-    [
-      300,
-      144,
-      0,
-      146,
-      0,
-      "VIDEO"
-    ],
-    [
-      303,
-      138,
-      0,
-      152,
-      0,
-      "MODEL"
-    ],
-    [
-      304,
-      139,
-      0,
-      152,
-      1,
-      "LATENT"
-    ],
-    [
-      305,
-      152,
-      0,
-      150,
-      1,
-      "LATENT"
-    ],
-    [
-      306,
-      152,
-      1,
-      136,
-      1,
-      "LATENT"
-    ],
-    [
-      307,
-      140,
-      0,
-      139,
-      0,
-      "VAE"
-    ],
-    [
-      315,
-      155,
-      0,
-      157,
-      0,
-      "MODEL"
-    ],
-    [
-      316,
-      154,
-      0,
-      157,
-      1,
-      "LATENT"
-    ],
-    [
-      317,
-      156,
-      0,
-      159,
-      0,
-      "VAE"
-    ],
-    [
-      318,
-      157,
-      0,
-      159,
-      1,
-      "LATENT"
-    ],
-    [
-      319,
-      156,
-      0,
-      160,
-      0,
-      "VAE"
-    ],
-    [
-      320,
-      161,
-      0,
-      160,
-      1,
-      "LATENT"
-    ],
-    [
-      321,
-      155,
-      0,
-      161,
-      0,
-      "MODEL"
-    ],
-    [
-      322,
-      159,
-      0,
-      161,
-      1,
-      "LATENT"
-    ],
-    [
-      323,
-      157,
-      1,
-      161,
-      2,
-      "LATENT"
-    ],
-    [
-      324,
-      158,
-      0,
-      162,
-      0,
-      "VAE"
-    ],
-    [
-      325,
-      161,
-      1,
-      162,
-      1,
-      "LATENT"
-    ],
-    [
-      326,
-      160,
-      1,
-      163,
-      0,
-      "IMAGE"
-    ],
-    [
-      327,
-      162,
-      0,
-      163,
-      1,
-      "AUDIO"
-    ],
-    [
-      328,
-      163,
-      0,
-      164,
-      0,
-      "VIDEO"
-    ],
-    [
-      329,
-      171,
-      0,
-      166,
-      0,
-      "VAE"
-    ],
-    [
-      330,
-      173,
-      0,
-      166,
-      1,
-      "LATENT"
-    ],
-    [
-      331,
-      171,
-      0,
-      167,
-      0,
-      "VAE"
-    ],
-    [
-      332,
-      168,
-      0,
-      167,
-      1,
-      "LATENT"
-    ],
-    [
-      333,
-      172,
-      0,
-      168,
-      0,
-      "MODEL"
-    ],
-    [
-      334,
-      166,
-      0,
-      168,
-      1,
-      "LATENT"
-    ],
-    [
-      335,
-      173,
-      1,
-      168,
-      2,
-      "LATENT"
-    ],
-    [
-      336,
-      167,
-      1,
-      169,
-      0,
-      "IMAGE"
-    ],
-    [
-      337,
-      174,
-      0,
-      169,
-      1,
-      "AUDIO"
-    ],
-    [
-      338,
-      169,
-      0,
-      170,
-      0,
-      "VIDEO"
-    ],
-    [
-      339,
-      172,
-      0,
-      173,
-      0,
-      "MODEL"
-    ],
-    [
-      340,
-      175,
-      0,
-      173,
-      1,
-      "LATENT"
-    ],
-    [
-      341,
-      165,
-      0,
-      174,
-      0,
-      "VAE"
-    ],
-    [
-      342,
-      168,
-      1,
-      174,
-      1,
-      "LATENT"
-    ],
-    [
-      346,
-      177,
-      1,
-      101,
-      1,
-      "LATENT"
-    ],
-    [
-      347,
-      177,
-      0,
-      149,
-      1,
-      "LATENT"
-    ],
-    [
-      348,
-      102,
-      0,
-      177,
-      1,
-      "LATENT"
-    ],
-    [
-      349,
+      376,
       176,
       0,
-      177,
+      183,
       0,
       "MODEL"
+    ],
+    [
+      377,
+      102,
+      0,
+      183,
+      1,
+      "LATENT"
+    ],
+    [
+      378,
+      183,
+      0,
+      180,
+      1,
+      "LATENT"
+    ],
+    [
+      379,
+      183,
+      1,
+      182,
+      1,
+      "LATENT"
+    ],
+    [
+      380,
+      181,
+      0,
+      183,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      381,
+      181,
+      1,
+      183,
+      3,
+      "CONDITIONING"
     ]
   ],
   "groups": [
     {
       "id": 1,
-      "title": "one stage",
+      "title": "inference",
       "bounding": [
-        892.7149808696763,
-        3076.4088611937614,
+        2985.5678931960824,
+        2233.194666765124,
         1751.8132681622233,
         999.7535670178909
       ],
@@ -4748,90 +700,12 @@
     },
     {
       "id": 2,
-      "title": "Group",
+      "title": "TE",
       "bounding": [
-        1888.1133124279802,
-        2227.6876043060847,
+        1963.6263805231256,
+        2232.4820840217108,
         1008.0591561187124,
         778.6663087917655
-      ],
-      "color": "#3f789e",
-      "font_size": 24,
-      "flags": {}
-    },
-    {
-      "id": 5,
-      "title": "all 2 stage and distill  and ICora",
-      "bounding": [
-        2672.853827194827,
-        3076.090707006789,
-        1690.0311004874293,
-        987.4519340464926
-      ],
-      "color": "#3f789e",
-      "font_size": 24,
-      "flags": {}
-    },
-    {
-      "id": 6,
-      "title": "key frames ",
-      "bounding": [
-        4424.2520462020175,
-        1980.5339087688728,
-        1697.3440734241085,
-        984.0191081071608
-      ],
-      "color": "#3f789e",
-      "font_size": 24,
-      "flags": {}
-    },
-    {
-      "id": 7,
-      "title": "audio2video",
-      "bounding": [
-        4427.763098696041,
-        3069.9800239033634,
-        1812.1445857177396,
-        1041.3285941900804
-      ],
-      "color": "#3f789e",
-      "font_size": 24,
-      "flags": {}
-    },
-    {
-      "id": 8,
-      "title": "retake",
-      "bounding": [
-        834.3480852654715,
-        4112.240871246475,
-        1816.8017430953425,
-        1215.78235478009
-      ],
-      "color": "#3f789e",
-      "font_size": 24,
-      "flags": {}
-    },
-    {
-      "id": 9,
-      "title": "2 stage hq",
-      "bounding": [
-        2694.448723940435,
-        4128.03633176791,
-        1777.389653664376,
-        1203.2422252703727
-      ],
-      "color": "#3f789e",
-      "font_size": 24,
-      "flags": {}
-    },
-    {
-      "id": 10,
-      "title": "IC lora",
-      "bounding": [
-        2677.8107318246853,
-        5362.647826616721,
-        1758.2441620253699,
-        1014.709423341732
       ],
       "color": "#3f789e",
       "font_size": 24,
@@ -4841,14 +715,14 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.7341769809963148,
+      "scale": 0.6067578355341452,
       "offset": [
-        -465.3712591105975,
-        -2969.83807993613
+        -1770.7246501135585,
+        -2009.3112720401482
       ]
     },
     "workflowRendererVersion": "LG",
-    "frontendVersion": "1.41.21",
+    "frontendVersion": "1.42.11",
     "VHS_latentpreview": false,
     "VHS_latentpreviewrate": 0,
     "VHS_MetadataImage": true,

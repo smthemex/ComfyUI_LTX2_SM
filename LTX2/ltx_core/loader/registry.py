@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Protocol
 
 from .primitives import StateDict
-from .sd_ops import SDOps
+from ..loader.sd_ops import SDOps
 
 
 class Registry(Protocol):

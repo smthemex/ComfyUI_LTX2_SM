@@ -256,6 +256,7 @@ checkpoints:
   # Precision to use when saving checkpoint weights
   # Options: "bfloat16" (default, smaller files) or "float32" (full precision)
   precision: "bfloat16"
+
 # -----------------------------------------------------------------------------
 # Flow Matching Configuration
 # -----------------------------------------------------------------------------

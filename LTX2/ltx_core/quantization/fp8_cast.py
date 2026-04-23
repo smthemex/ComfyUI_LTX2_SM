@@ -7,12 +7,6 @@ from ..model.transformer.model import LTXModel
 BLOCK_SIZE = 1024
 
 
-def calculate_weight_float8(target_weights: torch.Tensor, original_weights: torch.Tensor) -> torch.Tensor:
-    result = _fused_add_round_launch(target_weights, original_weights, seed=0).to(target_weights.dtype)
-    target_weights.copy_(result, non_blocking=True)
-    return target_weights
-
-
 def _fused_add_round_launch(target_weight: torch.Tensor, original_weight: torch.Tensor, seed: int) -> torch.Tensor:
     # Lazy import triton - only available on CUDA platforms
     import triton  # noqa: PLC0415
@@ -65,34 +59,44 @@ def _upcast_and_round(
     return _fused_add_round_launch(torch.zeros_like(weight, dtype=dtype), weight, seed)
 
 
+class Fp8CastLinear(torch.nn.Linear):
+    """nn.Linear storing weights in fp8, upcasting to input dtype during forward.
+    Used via __class__ reassignment (not subclassing) so existing weight tensors
+    are preserved in-place. Class-level forward is required for torch.compile
+    compatibility — instance-level closure monkey-patches cause graph breaks.
+    """
+
+    _with_stochastic_rounding: bool
+    _seed: int
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002, type: ignore[override]
+        w_up = _upcast_and_round(self.weight, input.dtype, self._with_stochastic_rounding, self._seed)
+        b_up = (
+            _upcast_and_round(self.bias, input.dtype, self._with_stochastic_rounding, self._seed)
+            if self.bias is not None
+            else None
+        )
+        return torch.nn.functional.linear(input, w_up, b_up)
+
+
 def _replace_fwd_with_upcast(layer: torch.nn.Linear, with_stochastic_rounding: bool = False, seed: int = 0) -> None:
     """
-    Replace linear.forward and rms_norm.forward with a version that:
-      - upcasts weight and bias to input's dtype
-      - returns F.linear or F.rms_norm calculated in that dtype
+    Intended to be applied via __class__ reassignment to existing nn.Linear
+    instances so that their parameter and buffer tensors are preserved in-place,
+    avoiding re-instantiation. Forward remains defined at the class level, which
+    is required for torch.compile compatibility — instance-level closure
+    monkey-patches cause graph breaks.
     """
-
-    layer.original_forward = layer.forward
-
-    def new_linear_forward(*args, **_kwargs) -> torch.Tensor:
-        # assume first arg is the input tensor
-        x = args[0]
-        w_up = _upcast_and_round(layer.weight, x.dtype, with_stochastic_rounding, seed)
-        b_up = None
-
-        if layer.bias is not None:
-            b_up = _upcast_and_round(layer.bias, x.dtype, with_stochastic_rounding, seed)
-
-        return torch.nn.functional.linear(x, w_up, b_up)
-
-    layer.forward = new_linear_forward
+    layer.__class__ = Fp8CastLinear
+    layer._with_stochastic_rounding = with_stochastic_rounding
+    layer._seed = seed
 
 
 def _amend_forward_with_upcast(
     model: torch.nn.Module, with_stochastic_rounding: bool = False, seed: int = 0
 ) -> torch.nn.Module:
     """
-    Replace the forward method of the model's Linear and RMSNorm layers to forward
+    Replace the forward method of the model's Linear layers to forward
     with upcast and optional stochastic rounding.
     """
     for m in model.modules():

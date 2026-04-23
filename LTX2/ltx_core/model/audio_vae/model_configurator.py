@@ -1,10 +1,10 @@
 import torch
 
 from ...loader.sd_ops import KeyValueOperationResult, SDOps
-from ..audio_vae.attention import AttentionType
-from ..audio_vae.audio_vae import AudioDecoder, AudioEncoder
-from ..audio_vae.causality_axis import CausalityAxis
-from ..audio_vae.vocoder import MelSTFT, Vocoder, VocoderWithBWE
+from .attention import AttentionType
+from .audio_vae import AudioDecoder, AudioEncoder
+from .causality_axis import CausalityAxis
+from .vocoder import MelSTFT, Vocoder, VocoderWithBWE
 from ..common.normalization import NormType
 from ..model_protocol import ModelConfigurator
 from ...utils import check_config_value

@@ -10,6 +10,7 @@ The foundational library for the LTX-2 Audio-Video generation model. This packag
 - **`loader/`**: Utilities for loading weights from `.safetensors`, fusing LoRAs, and managing memory
 - **`model/`**: PyTorch implementations of the LTX-2 Transformer, Video VAE, Audio VAE, Vocoder and Upscaler
 - **`text_encoders/gemma`**: Gemma text encoder implementation with tokenizers, feature extractors, and separate encoders for audio-video and video-only generation
+- **`quantization/`**: FP8 quantization backends (FP8-TensorRT-LLM scaled MM, FP8 cast) for reduced memory footprint.
 
 ## 🚀 Quick Start
 
@@ -31,11 +32,11 @@ pip install -e packages/ltx-core
 
 ### Core Models
 
-- **Transformer** ([`model/transformer/`](src/ltx_core/model/transformer/)): The 48-layer LTX-2 transformer with cross-modal attention for joint audio-video processing. Expects inputs in [`Modality`](src/ltx_core/model/transformer/modality.py) format
+- **Transformer** ([`model/transformer/`](src/ltx_core/model/transformer/)): The asymmetric dual-stream LTX-2 transformer (14B-parameter video stream, 5B-parameter audio stream) with bidirectional cross-modal attention for joint audio-video processing. Expects inputs in [`Modality`](src/ltx_core/model/transformer/modality.py) format
 - **Video VAE** ([`model/video_vae/`](src/ltx_core/model/video_vae/)): Encodes/decodes video pixels to/from latent space with temporal and spatial compression
 - **Audio VAE** ([`model/audio_vae/`](src/ltx_core/model/audio_vae/)): Encodes/decodes audio spectrograms to/from latent space
 - **Vocoder** ([`model/audio_vae/`](src/ltx_core/model/audio_vae/)): Neural vocoder that converts mel spectrograms to audio waveforms
-- **Text Encoder** ([`text_encoders/`](src/ltx_core/text_encoders/)): Gemma-based encoder that produces separate embeddings for video and audio conditioning
+- **Text Encoder** ([`text_encoders/`](src/ltx_core/text_encoders/)): Gemma 3-based multilingual encoder with multi-layer feature extraction and thinking tokens that produces separate embeddings for video and audio conditioning
 - **Spatial Upscaler** ([`model/upsampler/`](src/ltx_core/model/upsampler/)): Upsamples latent representations for higher-resolution generation
 
 ### Diffusion Components
@@ -53,6 +54,115 @@ pip install -e packages/ltx-core
 ### Utilities
 
 - **Loader** ([`loader/`](src/ltx_core/loader/)): Model loading from `.safetensors`, LoRA fusion, weight remapping, and memory management
+- **Quantization** ([`quantization/`](src/ltx_core/quantization/)): FP8 quantization backends for reduced memory footprint and faster inference
+
+### Loader
+
+The `loader/` module provides `SingleGPUModelBuilder`, a frozen dataclass that loads a PyTorch model from `.safetensors` checkpoints and optionally fuses one or more LoRA adapters.
+
+#### Basic usage
+
+```python
+from ltx_core.loader import SingleGPUModelBuilder
+
+builder = SingleGPUModelBuilder(
+    model_class_configurator=MyModelConfigurator,
+    model_path="/path/to/model.safetensors",
+)
+model = builder.build(device=torch.device("cuda"))
+```
+
+#### Loading LoRA adapters
+
+Use the `.lora()` method to attach one or more LoRA adapters before calling `.build()`:
+
+```python
+builder = (
+    SingleGPUModelBuilder(
+        model_class_configurator=MyModelConfigurator,
+        model_path="/path/to/model.safetensors",
+    )
+    .lora("/path/to/lora_a.safetensors", strength=0.8)
+    .lora("/path/to/lora_b.safetensors", strength=0.5)
+)
+model = builder.build(device=torch.device("cuda"))
+```
+
+#### Memory-efficient LoRA loading (`lora_load_device`)
+
+By default, LoRA weights are loaded onto the **CPU** (`lora_load_device=torch.device("cpu")`).  This means each LoRA adapter is kept in CPU memory and transferred to the GPU sequentially during weight fusion, which keeps peak GPU memory low even when fusing large adapters.
+
+If all adapters fit comfortably in GPU memory you can skip the CPU staging by setting `lora_load_device` to the target CUDA device:
+
+```python
+import torch
+from ltx_core.loader import SingleGPUModelBuilder
+
+# Load LoRA weights directly onto the GPU (faster, but uses more GPU memory)
+builder = SingleGPUModelBuilder(
+    model_class_configurator=MyModelConfigurator,
+    model_path="/path/to/model.safetensors",
+    lora_load_device=torch.device("cuda"),
+).lora("/path/to/lora.safetensors", strength=1.0)
+
+model = builder.build(device=torch.device("cuda"))
+```
+
+### Quantization
+
+The `quantization/` module provides FP8 quantization support for the LTX-2 transformer, significantly reducing memory usage while maintaining quality. Two backends are available:
+
+#### FP8 Scaled MM (TensorRT-LLM)
+
+Uses NVIDIA TensorRT-LLM's `cublas_scaled_mm` for efficient FP8 matrix multiplication. Weights are stored in FP8 format with per-tensor scaling, and inputs are quantized dynamically (or statically with calibration data).
+
+**Requirements**: `uv sync --frozen --extra fp8-trtllm`
+
+**Usage with QuantizationPolicy:**
+
+```python
+from ltx_core.quantization import QuantizationPolicy
+
+# Dynamic input quantization (no calibration needed)
+policy = QuantizationPolicy.fp8_scaled_mm()
+
+# Static input quantization with calibration file
+policy = QuantizationPolicy.fp8_scaled_mm(calibration_amax_path="/path/to/amax.json")
+```
+
+The policy provides `sd_ops` and `module_ops` that can be passed to the model builder:
+
+```python
+from ltx_core.loader import SingleGPUModelBuilder
+
+builder = SingleGPUModelBuilder(
+    model=model,
+    device=device,
+    sd_ops=policy.sd_ops,
+    module_ops=policy.module_ops,
+)
+builder.load(checkpoint_path)
+```
+
+**Calibration File Format** (for static input quantization):
+
+```json
+{
+  "amax_values": {
+    "transformer_blocks.0.attn.to_q.input_quantizer": 12.5,
+    "transformer_blocks.0.attn.to_k.input_quantizer": 8.3,
+    ...
+  }
+}
+```
+
+#### FP8 Cast
+
+A simpler approach that casts weights to FP8 for storage and upcasts during inference:
+
+```python
+policy = QuantizationPolicy.fp8_cast()
+```
 
 For complete, production-ready pipeline implementations that combine these building blocks, see the [`ltx-pipelines`](../ltx-pipelines/) package.
 
@@ -76,7 +186,14 @@ This section provides a deep dive into the internal architecture of the LTX-2 Au
 
 ## High-Level Architecture
 
-LTX-2 is a **joint Audio-Video diffusion transformer** that processes both modalities simultaneously in a unified architecture. Unlike traditional models that handle video and audio separately, LTX-2 uses cross-modal attention to enable natural synchronization.
+LTX-2 is an **asymmetric dual-stream diffusion transformer** that jointly models the text-conditioned distribution of video and audio signals, capturing true joint dependencies (unlike sequential T2V→V2A pipelines).
+
+### Key Design Principles
+
+- **Decoupled Latent Representations**: Separate modality-specific VAEs enable 3D RoPE (video) vs 1D RoPE (audio), independent compression optimization, and native V2A/A2V editing workflows
+- **Asymmetric Dual-Stream**: 14B-parameter video stream (spatiotemporal dynamics) + 5B-parameter audio stream (1D temporal), sharing 48 transformer blocks but differing in width
+- **Bidirectional Cross-Modal Attention**: 1D temporal RoPE enables sub-frame alignment, mapping visual cues to auditory events (lip-sync, foley, environmental acoustics)
+- **Cross-Modality AdaLN**: Scaling/shift parameters conditioned on the other modality's hidden states for synchronization across differing diffusion timesteps/temporal resolutions
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
@@ -84,21 +201,26 @@ LTX-2 is a **joint Audio-Video diffusion transformer** that processes both modal
 │                                                             │
 │  Video Pixels → Video VAE Encoder → Video Latents           │
 │  Audio Waveform → Audio VAE Encoder → Audio Latents         │
-│  Text Prompt → Gemma Encoder → Text Embeddings              │
+│  Text Prompt → Gemma 3 Encoder → Text Embeddings            │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│              LTX-2 TRANSFORMER (48 Blocks)                  │
+│     LTX-2 ASYMMETRIC DUAL-STREAM TRANSFORMER (48 Blocks)    │
 │                                                             │
-│  ┌──────────────┐              ┌──────────────┐             │
-│  │ Video Stream │              │ Audio Stream │             │
-│  │              │              │              │             │
-│  │ Self-Attn    │              │ Self-Attn    │             │
-│  │ Cross-Attn   │              │ Cross-Attn   │             │
-│  │              │◄────────────►│              │             │
-│  │ A↔V Cross    │              │ A↔V Cross    │             │
-│  │ Feed-Forward │              │ Feed-Forward │             │
-│  └──────────────┘              └──────────────┘             │
+│  ┌──────────────────────┐      ┌──────────────────────┐     │
+│  │  Video Stream (14B)  │      │  Audio Stream (5B)   │     │
+│  │                      │      │                      │     │
+│  │  3D RoPE (x,y,t)     │      │  1D RoPE (temporal)  │     │
+│  │                      │      │                      │     │
+│  │  Self-Attn           │      │  Self-Attn           │     │
+│  │  Text Cross-Attn     │      │  Text Cross-Attn     │     │
+│  │                      │◄────►│                      │     │
+│  │  A↔V Cross-Attn      │      │  A↔V Cross-Attn      │     │
+│  │  (1D temporal RoPE)  │      │  (1D temporal RoPE)  │     │
+│  │  Cross-modality      │      │  Cross-modality      │     │
+│  │  AdaLN               │      │  AdaLN               │     │
+│  │  Feed-Forward        │      │  Feed-Forward        │     │
+│  └──────────────────────┘      └──────────────────────┘     │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -106,7 +228,7 @@ LTX-2 is a **joint Audio-Video diffusion transformer** that processes both modal
 │                                                             │
 │  Video Latents → Video VAE Decoder → Video Pixels           │
 │  Audio Latents → Audio VAE Decoder → Mel Spectrogram        │
-│  Mel Spectrogram → Vocoder → Audio Waveform                 │
+│  Mel Spectrogram → Vocoder → Audio Waveform (24 kHz)        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -114,7 +236,7 @@ LTX-2 is a **joint Audio-Video diffusion transformer** that processes both modal
 
 ## The Transformer
 
-The core of LTX-2 is a 48-layer transformer that processes both video and audio tokens simultaneously.
+The core of LTX-2 is an **asymmetric dual-stream diffusion transformer** with 48 layers that processes both video and audio tokens simultaneously. The architecture allocates 14B parameters to the video stream and 5B parameters to the audio stream, reflecting the different information densities of the two modalities.
 
 ### Model Structure
 
@@ -126,28 +248,35 @@ The `LTXModel` class implements the transformer. It supports both video-only and
 
 **Source**: [`src/ltx_core/model/transformer/transformer.py`](src/ltx_core/model/transformer/transformer.py)
 
+Each dual-stream block performs four operations sequentially:
+
+1. **Self-Attention**: Within-modality attention for each stream
+2. **Text Cross-Attention**: Textual prompt conditioning for both streams
+3. **Audio-Visual Cross-Attention**: Bidirectional inter-modal exchange
+4. **Feed-Forward Network (FFN)**: Feature refinement
+
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    TRANSFORMER BLOCK                        │
 │                                                             │
-│  VIDEO PATH:                                                │
-│    Input → RMSNorm → AdaLN → Self-Attn (attn1)              │
-│         → RMSNorm → Cross-Attn (attn2, text)                │
-│         → RMSNorm → AdaLN → A↔V Cross-Attn                  │
-│         → RMSNorm → AdaLN → Feed-Forward (ff) → Output      │
+│  VIDEO (14B): Input → RMSNorm → AdaLN → Self-Attn →         │
+│              RMSNorm → Text Cross-Attn →                    │
+│              RMSNorm → AdaLN → A↔V Cross-Attn (1D RoPE) →   │
+│              RMSNorm → AdaLN → FFN → Output                 │
 │                                                             │
-│  AUDIO PATH:                                                │
-│    Input → RMSNorm → AdaLN → Self-Attn (audio_attn1)        │
-│         → RMSNorm → Cross-Attn (audio_attn2, text)          │
-│         → RMSNorm → AdaLN → A↔V Cross-Attn                  │
-│         → RMSNorm → AdaLN → Feed-Forward (audio_ff)         │
+│  AUDIO (5B):  Input → RMSNorm → AdaLN → Self-Attn →         │
+│              RMSNorm → Text Cross-Attn →                    │
+│              RMSNorm → AdaLN → A↔V Cross-Attn (1D RoPE) →   │
+│              RMSNorm → AdaLN → FFN → Output                 │
 │                                                             │
-│  AdaLN (Adaptive Layer Normalization):                      │
-│    - Uses scale_shift_table (6 params) for video/audio      │
-│    - Uses scale_shift_table_a2v_ca (5 params) for A↔V CA    │
-│    - Conditioned on per-token timestep embeddings           │
+│  RoPE: Video=3D (x,y,t), Audio=1D (t), Cross-Attn=1D (t)    │
+│  AdaLN: Timestep-conditioned, cross-modality for A↔V CA     │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### Audio-Visual Cross-Attention Details
+
+Bidirectional cross-attention enables tight temporal alignment: video and audio streams exchange information bidirectionally using 1D temporal RoPE (synchronization only, no spatial alignment). AdaLN gates condition on each modality's timestep for cross-modal synchronization.
 
 ### Perturbations
 
@@ -189,12 +318,11 @@ The Audio VAE ([`src/ltx_core/model/audio_vae/`](src/ltx_core/model/audio_vae/))
 
 ### Audio VAE Architecture
 
-- **Encoder**: Compresses mel spectrogram `[B, mel_bins, T]` → `[B, 8, T/4, 16]` latents
-  - Temporal downsampling: 4× (`LATENT_DOWNSAMPLE_FACTOR = 4`)
-  - Frequency bins: Fixed 16 mel bins in latent space
-  - Latent channels: 8
-- **Decoder**: Expands `[B, 8, T, 16]` latents → mel spectrogram `[B, mel_bins, T*4]`
-- **Vocoder**: Converts mel spectrogram → audio waveform
+Compact neural audio representation optimized for diffusion-based training. Natively supports stereo: processes two-channel mel-spectrograms (16 kHz input) with channel concatenation before encoding.
+
+- **Encoder**: `[B, mel_bins, T]` → `[B, 8, T/4, 16]` latents (4× temporal downsampling, 8 channels, 16 mel bins in latent space, ~1/25s per token, 128-dim feature vector)
+- **Decoder**: `[B, 8, T, 16]` → `[B, mel_bins, T*4]` mel spectrogram
+- **Vocoder**: HiFi-GAN-based, modified for stereo synthesis and upsampling (16 kHz mel → 24 kHz waveform, doubled generator capacity for stereo)
 
 **Downsampling**:
 
@@ -207,19 +335,20 @@ The Audio VAE is used internally by pipelines for encoding mel spectrograms to l
 
 ## Text Encoding (Gemma)
 
-LTX-2 uses **Gemma** (Google's open LLM) as the text encoder, located in [`src/ltx_core/text_encoders/gemma/`](src/ltx_core/text_encoders/gemma/).
+LTX-2 uses **Gemma 3** (Gemma 3-12B) as the multilingual text encoder backbone, located in [`src/ltx_core/text_encoders/gemma/`](src/ltx_core/text_encoders/gemma/). Advanced text understanding is critical not only for global language support but for the phonetic and semantic accuracy of generated speech.
 
 ### Text Encoder Architecture
 
-- **Tokenizer**: Converts text → token IDs
-- **Gemma Model**: Processes tokens → embeddings
-- **Text Projection**: Uses `PixArtAlphaTextProjection` to project caption embeddings
-  - Two-layer MLP with GELU (tanh approximation) or SiLU activation
-  - Projects from caption channels (3840) to model dimensions
-- **Feature Extractor**: Extracts video/audio-specific embeddings
-- **Separate Encoders**:
-  - `AVEncoder`: For audio-video generation (outputs separate video and audio contexts)
-  - `VideoOnlyEncoder`: For video-only generation
+The text conditioning pipeline consists of three stages:
+
+1. **Gemma 3 Backbone**: Decoder-only LLM processes text tokens → embeddings across all layers `[B, T, D, L]`
+2. **Multi-Layer Feature Extractor**: Aggregates features from all decoder layers (not just final layer), applies mean-centered scaling, flattens to `[B, T, D×L]`, and projects via learnable matrix W (jointly optimized with LTX-2, LLM weights frozen)
+3. **Text Connector**: Bidirectional transformer blocks with learnable registers (replacing padded positions, also referred to as "thinking tokens" in the paper) for contextual mixing. Separate connectors for video and audio streams (`Embeddings1DConnector`)
+
+**Encoders**:
+
+- `AVGemmaTextEncoderModel`: Audio-video generation (two connectors → `AVGemmaEncoderOutput` with separate video/audio contexts)
+- `VideoGemmaTextEncoderModel`: Video-only generation (single connector → `VideoGemmaEncoderOutput`)
 
 ### System Prompts
 
@@ -228,7 +357,7 @@ System prompts are also used to enhance user's prompts.
 - **Text-to-Video**: [`gemma_t2v_system_prompt.txt`](src/ltx_core/text_encoders/gemma/encoders/prompts/gemma_t2v_system_prompt.txt)
 - **Image-to-Video**: [`gemma_i2v_system_prompt.txt`](src/ltx_core/text_encoders/gemma/encoders/prompts/gemma_i2v_system_prompt.txt)
 
-**Important**: Video and audio receive **different** context embeddings, even from the same prompt. This allows better modality-specific conditioning.
+**Important**: Video and audio receive **different** context embeddings, even from the same prompt. This allows better modality-specific conditioning and enables the model to synthesize speech that is synchronized with visual lip movement while being natural in cadence, accent, and emotional tone.
 
 **Output Format**:
 

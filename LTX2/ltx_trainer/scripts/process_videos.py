@@ -41,6 +41,7 @@ from torchvision.transforms.functional import crop, resize, to_tensor
 from transformers.utils.logging import disable_progress_bar
 
 from ltx_core.model.audio_vae import AudioProcessor
+from ltx_core.types import Audio
 from ltx_trainer import logger
 from ltx_trainer.model_loader import load_audio_vae_encoder, load_video_vae_encoder
 from ltx_trainer.utils import open_image_as_srgb
@@ -58,6 +59,9 @@ VAE_TEMPORAL_FACTOR = 8
 # Audio constants
 AUDIO_LATENT_CHANNELS = 8
 AUDIO_FREQUENCY_BINS = 16
+
+DEFAULT_TILE_SIZE = 512  # Spatial tile size in pixels (must be ≥64 and divisible by 32)
+DEFAULT_TILE_OVERLAP = 128  # Spatial tile overlap in pixels (must be divisible by 32)
 
 app = typer.Typer(
     pretty_exceptions_enable=False,
@@ -488,9 +492,6 @@ def compute_latents(  # noqa: PLR0913, PLR0915
     with console.status(f"[bold]Loading video VAE encoder from [cyan]{model_path}[/]...", spinner="dots"):
         vae = load_video_vae_encoder(model_path, device=torch_device, dtype=torch.bfloat16)
 
-    if vae_tiling:
-        vae.enable_tiling()
-
     # Load audio VAE encoder and audio processor if needed
     audio_vae_encoder = None
     audio_processor = None
@@ -503,7 +504,7 @@ def compute_latents(  # noqa: PLR0913, PLR0915
             )
             # Create audio processor for waveform-to-spectrogram conversion
             audio_processor = AudioProcessor(
-                sample_rate=audio_vae_encoder.sample_rate,
+                target_sample_rate=audio_vae_encoder.sample_rate,
                 mel_bins=audio_vae_encoder.mel_bins,
                 mel_hop_length=audio_vae_encoder.mel_hop_length,
                 n_fft=audio_vae_encoder.n_fft,
@@ -540,7 +541,7 @@ def compute_latents(  # noqa: PLR0913, PLR0915
 
             # Encode video
             with torch.inference_mode():
-                video_latent_data = encode_video(vae=vae, video=video)
+                video_latent_data = encode_video(vae=vae, video=video, use_tiling=vae_tiling)
 
             # Save latents for each item in batch
             for i in range(len(batch["relative_path"])):
@@ -567,10 +568,10 @@ def compute_latents(  # noqa: PLR0913, PLR0915
                     if audio_batch is not None:
                         # Extract the i-th item from batched audio data
                         # DataLoader collates [channels, samples] -> [batch, channels, samples]
-                        audio_data = {
-                            "waveform": audio_batch["waveform"][i],
-                            "sample_rate": audio_batch["sample_rate"][i].item(),
-                        }
+                        audio_data = Audio(
+                            waveform=audio_batch["waveform"][i],
+                            sampling_rate=audio_batch["sample_rate"][i].item(),
+                        )
 
                         # Encode audio
                         with torch.inference_mode():
@@ -608,6 +609,9 @@ def encode_video(
     vae: torch.nn.Module,
     video: torch.Tensor,
     dtype: torch.dtype | None = None,
+    use_tiling: bool = False,
+    tile_size: int = DEFAULT_TILE_SIZE,
+    tile_overlap: int = DEFAULT_TILE_OVERLAP,
 ) -> dict[str, torch.Tensor | int]:
     """Encode video into non-patchified latent representation.
     Args:
@@ -615,6 +619,9 @@ def encode_video(
         video: Input tensor of shape [B, C, F, H, W] (batch, channels, frames, height, width)
                This is the format expected by the VAE encoder.
         dtype: Target dtype for output latents
+        use_tiling: Whether to use spatial tiling for memory efficiency
+        tile_size: Tile size in pixels (must be divisible by 32)
+        tile_overlap: Overlap between tiles in pixels (must be divisible by 32)
     Returns:
         Dict containing non-patchified latents and shape information:
         {
@@ -633,8 +640,17 @@ def encode_video(
 
     video = video.to(device=device, dtype=vae_dtype)
 
-    # Encode video - VAE expects [B, C, F, H, W], returns [B, C, F', H', W']
-    latents = vae(video)
+    # Choose encoding method based on tiling flag
+    if use_tiling:
+        latents = tiled_encode_video(
+            vae=vae,
+            video=video,
+            tile_size=tile_size,
+            tile_overlap=tile_overlap,
+        )
+    else:
+        # Encode video - VAE expects [B, C, F, H, W], returns [B, C, F', H', W']
+        latents = vae(video)
 
     if dtype is not None:
         latents = latents.to(dtype=dtype)
@@ -649,16 +665,171 @@ def encode_video(
     }
 
 
+def tiled_encode_video(  # noqa: PLR0912, PLR0915
+    vae: torch.nn.Module,
+    video: torch.Tensor,
+    tile_size: int = DEFAULT_TILE_SIZE,
+    tile_overlap: int = DEFAULT_TILE_OVERLAP,
+) -> torch.Tensor:
+    """Encode video using spatial tiling for memory efficiency.
+    Splits the video into overlapping spatial tiles, encodes each tile separately,
+    and blends the results using linear feathering in the overlap regions.
+    Args:
+        vae: Video VAE encoder model
+        video: Input tensor of shape [B, C, F, H, W]
+        tile_size: Tile size in pixels (must be divisible by 32)
+        tile_overlap: Overlap between tiles in pixels (must be divisible by 32)
+    Returns:
+        Encoded latent tensor [B, C_latent, F_latent, H_latent, W_latent]
+    """
+    batch, _channels, frames, height, width = video.shape
+    device = video.device
+    dtype = video.dtype
+
+    # Validate tile parameters
+    if tile_size % VAE_SPATIAL_FACTOR != 0:
+        raise ValueError(f"tile_size must be divisible by {VAE_SPATIAL_FACTOR}, got {tile_size}")
+    if tile_overlap % VAE_SPATIAL_FACTOR != 0:
+        raise ValueError(f"tile_overlap must be divisible by {VAE_SPATIAL_FACTOR}, got {tile_overlap}")
+    if tile_overlap >= tile_size:
+        raise ValueError(f"tile_overlap ({tile_overlap}) must be less than tile_size ({tile_size})")
+
+    # If video fits in a single tile, use regular encoding
+    if height <= tile_size and width <= tile_size:
+        return vae(video)
+
+    # Calculate output dimensions
+    # VAE compresses: H -> H/32, W -> W/32, F -> 1 + (F-1)/8
+    output_height = height // VAE_SPATIAL_FACTOR
+    output_width = width // VAE_SPATIAL_FACTOR
+    output_frames = 1 + (frames - 1) // VAE_TEMPORAL_FACTOR
+
+    # Latent channels (128 for LTX-2)
+    # Get from a small test encode or assume 128
+    latent_channels = 128
+
+    # Initialize output and weight tensors
+    output = torch.zeros(
+        (batch, latent_channels, output_frames, output_height, output_width),
+        device=device,
+        dtype=dtype,
+    )
+    weights = torch.zeros(
+        (batch, 1, output_frames, output_height, output_width),
+        device=device,
+        dtype=dtype,
+    )
+
+    # Calculate tile positions with overlap
+    # Step size is tile_size - tile_overlap
+    step_h = tile_size - tile_overlap
+    step_w = tile_size - tile_overlap
+
+    h_positions = list(range(0, max(1, height - tile_overlap), step_h))
+    w_positions = list(range(0, max(1, width - tile_overlap), step_w))
+
+    # Ensure last tile covers the edge
+    if h_positions[-1] + tile_size < height:
+        h_positions.append(height - tile_size)
+    if w_positions[-1] + tile_size < width:
+        w_positions.append(width - tile_size)
+
+    # Remove duplicates and sort
+    h_positions = sorted(set(h_positions))
+    w_positions = sorted(set(w_positions))
+
+    # Overlap in latent space
+    overlap_out_h = tile_overlap // VAE_SPATIAL_FACTOR
+    overlap_out_w = tile_overlap // VAE_SPATIAL_FACTOR
+
+    # Process each tile
+    for h_pos in h_positions:
+        for w_pos in w_positions:
+            # Calculate tile boundaries in input space
+            h_start = max(0, h_pos)
+            w_start = max(0, w_pos)
+            h_end = min(h_start + tile_size, height)
+            w_end = min(w_start + tile_size, width)
+
+            # Ensure tile dimensions are divisible by VAE_SPATIAL_FACTOR
+            tile_h = ((h_end - h_start) // VAE_SPATIAL_FACTOR) * VAE_SPATIAL_FACTOR
+            tile_w = ((w_end - w_start) // VAE_SPATIAL_FACTOR) * VAE_SPATIAL_FACTOR
+
+            if tile_h < VAE_SPATIAL_FACTOR or tile_w < VAE_SPATIAL_FACTOR:
+                continue
+
+            # Adjust end positions
+            h_end = h_start + tile_h
+            w_end = w_start + tile_w
+
+            # Extract tile
+            tile = video[:, :, :, h_start:h_end, w_start:w_end]
+
+            # Encode tile
+            encoded_tile = vae(tile)
+
+            # Get actual encoded dimensions
+            _, _, tile_out_frames, tile_out_height, tile_out_width = encoded_tile.shape
+
+            # Calculate output positions
+            out_h_start = h_start // VAE_SPATIAL_FACTOR
+            out_w_start = w_start // VAE_SPATIAL_FACTOR
+            out_h_end = min(out_h_start + tile_out_height, output_height)
+            out_w_end = min(out_w_start + tile_out_width, output_width)
+
+            # Trim encoded tile if necessary
+            actual_tile_h = out_h_end - out_h_start
+            actual_tile_w = out_w_end - out_w_start
+            encoded_tile = encoded_tile[:, :, :, :actual_tile_h, :actual_tile_w]
+
+            # Create blending mask with linear feathering at edges
+            mask = torch.ones(
+                (1, 1, tile_out_frames, actual_tile_h, actual_tile_w),
+                device=device,
+                dtype=dtype,
+            )
+
+            # Apply feathering at edges (linear blend in overlap regions)
+            # Left edge
+            if h_pos > 0 and overlap_out_h > 0 and overlap_out_h < actual_tile_h:
+                fade_in = torch.linspace(0.0, 1.0, overlap_out_h + 2, device=device, dtype=dtype)[1:-1]
+                mask[:, :, :, :overlap_out_h, :] *= fade_in.view(1, 1, 1, -1, 1)
+
+            # Right edge (bottom in height dimension)
+            if h_end < height and overlap_out_h > 0 and overlap_out_h < actual_tile_h:
+                fade_out = torch.linspace(1.0, 0.0, overlap_out_h + 2, device=device, dtype=dtype)[1:-1]
+                mask[:, :, :, -overlap_out_h:, :] *= fade_out.view(1, 1, 1, -1, 1)
+
+            # Top edge (left in width dimension)
+            if w_pos > 0 and overlap_out_w > 0 and overlap_out_w < actual_tile_w:
+                fade_in = torch.linspace(0.0, 1.0, overlap_out_w + 2, device=device, dtype=dtype)[1:-1]
+                mask[:, :, :, :, :overlap_out_w] *= fade_in.view(1, 1, 1, 1, -1)
+
+            # Bottom edge (right in width dimension)
+            if w_end < width and overlap_out_w > 0 and overlap_out_w < actual_tile_w:
+                fade_out = torch.linspace(1.0, 0.0, overlap_out_w + 2, device=device, dtype=dtype)[1:-1]
+                mask[:, :, :, :, -overlap_out_w:] *= fade_out.view(1, 1, 1, 1, -1)
+
+            # Accumulate weighted results
+            output[:, :, :, out_h_start:out_h_end, out_w_start:out_w_end] += encoded_tile * mask
+            weights[:, :, :, out_h_start:out_h_end, out_w_start:out_w_end] += mask
+
+    # Normalize by weights (avoid division by zero)
+    output = output / (weights + 1e-8)
+
+    return output
+
+
 def encode_audio(
     audio_vae_encoder: torch.nn.Module,
     audio_processor: torch.nn.Module,
-    audio_data: dict[str, torch.Tensor | int],
+    audio: Audio,
 ) -> dict[str, torch.Tensor | int | float]:
     """Encode audio waveform into latent representation.
     Args:
         audio_vae_encoder: Audio VAE encoder model from ltx-core
         audio_processor: AudioProcessor for waveform-to-spectrogram conversion
-        audio_data: Dict with {"waveform": Tensor[channels, samples], "sample_rate": int}
+        audio: Audio container with waveform tensor and sampling rate.
     Returns:
         Dict containing audio latents and shape information:
         {
@@ -671,18 +842,17 @@ def encode_audio(
     device = next(audio_vae_encoder.parameters()).device
     dtype = next(audio_vae_encoder.parameters()).dtype
 
-    waveform = audio_data["waveform"].to(device=device, dtype=dtype)
-    sample_rate = audio_data["sample_rate"]
+    waveform = audio.waveform.to(device=device, dtype=dtype)
 
     # Add batch dimension if needed: [channels, samples] -> [batch, channels, samples]
     if waveform.dim() == 2:
         waveform = waveform.unsqueeze(0)
 
     # Calculate duration
-    duration = waveform.shape[-1] / sample_rate
+    duration = waveform.shape[-1] / audio.sampling_rate
 
     # Convert waveform to mel spectrogram using AudioProcessor
-    mel_spectrogram = audio_processor.waveform_to_mel(waveform, waveform_sample_rate=sample_rate)
+    mel_spectrogram = audio_processor.waveform_to_mel(Audio(waveform=waveform, sampling_rate=audio.sampling_rate))
     mel_spectrogram = mel_spectrogram.to(dtype=dtype)
 
     # Encode mel spectrogram to latents
@@ -719,6 +889,50 @@ def parse_resolution_buckets(resolution_buckets_str: str) -> list[tuple[int, int
 
         resolution_buckets.append((f, h, w))
     return resolution_buckets
+
+
+def compute_scaled_resolution_buckets(
+    resolution_buckets: list[tuple[int, int, int]],
+    scale_factor: int,
+) -> list[tuple[int, int, int]]:
+    """Compute scaled resolution buckets and validate the results."""
+    if scale_factor == 1:
+        return resolution_buckets
+
+    scaled_buckets = []
+    for frames, height, width in resolution_buckets:
+        # Validate that scale factor evenly divides the dimensions
+        if height % scale_factor != 0:
+            raise ValueError(
+                f"Height {height} is not evenly divisible by scale factor {scale_factor}. "
+                f"Choose a scale factor that divides {height} evenly."
+            )
+        if width % scale_factor != 0:
+            raise ValueError(
+                f"Width {width} is not evenly divisible by scale factor {scale_factor}. "
+                f"Choose a scale factor that divides {width} evenly."
+            )
+
+        scaled_height = height // scale_factor
+        scaled_width = width // scale_factor
+
+        # Validate scaled dimensions are divisible by VAE spatial factor
+        if scaled_height % VAE_SPATIAL_FACTOR != 0:
+            raise ValueError(
+                f"Scaled height {scaled_height} (from {height} / {scale_factor}) "
+                f"is not divisible by {VAE_SPATIAL_FACTOR}. "
+                f"Choose a different scale factor or adjust your resolution buckets."
+            )
+        if scaled_width % VAE_SPATIAL_FACTOR != 0:
+            raise ValueError(
+                f"Scaled width {scaled_width} (from {width} / {scale_factor}) "
+                f"is not divisible by {VAE_SPATIAL_FACTOR}. "
+                f"Choose a different scale factor or adjust your resolution buckets."
+            )
+
+        scaled_buckets.append((frames, scaled_height, scaled_width))
+
+    return scaled_buckets
 
 
 @app.command()

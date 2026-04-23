@@ -173,6 +173,15 @@ def basic_arg_parser(
             required=True,
             help="Path to LTX-2 model checkpoint (.safetensors file).",
         )
+        parser.add_argument(
+            "--num-inference-steps",
+            type=int,
+            default=params.num_inference_steps,
+            help=(
+                f"Number of denoising steps in the diffusion sampling process. "
+                f"Higher values improve quality but increase generation time (default: {params.num_inference_steps})."
+            ),
+        )
     parser.add_argument(
         "--gemma-root",
         type=resolve_path,
@@ -197,6 +206,85 @@ def basic_arg_parser(
         default=params.seed,
         help=f"Random seed for reproducible generation (default: {params.seed}).",
     )
+    parser.add_argument(
+        "--lora",
+        dest="lora",
+        action=LoraAction,
+        nargs="+",  # Accept 1-2 arguments per use (path and optional strength); validation is handled in LoraAction
+        metavar=("PATH", "STRENGTH"),
+        default=[],
+        help=(
+            "LoRA (Low-Rank Adaptation) model: path to model file and optional strength "
+            f"(default strength: {DEFAULT_LORA_STRENGTH}). Can be specified multiple times. "
+            "Example: --lora path/to/lora1.safetensors 0.8 --lora path/to/lora2.safetensors"
+        ),
+    )
+
+    parser.add_argument("--enhance-prompt", action="store_true")
+
+    def _positive_int(value: str) -> int:
+        try:
+            int_value = int(value)
+            if int_value < 1:
+                raise argparse.ArgumentTypeError("must be >= 1")
+            return int_value
+        except ValueError as e:
+            raise argparse.ArgumentTypeError(f"must be an integer, got {value}") from e
+
+    # Layer streaming
+    parser.add_argument(
+        "--streaming-prefetch-count",
+        type=_positive_int,
+        default=None,
+        metavar="N",
+        help=(
+            "Enable layer streaming prefetching N layers ahead. "
+            "At most 1 + N layers reside on GPU at once. "
+            "Must be >= 1. Example: --streaming-prefetch-count 2"
+        ),
+    )
+
+    parser.add_argument(
+        "--max-batch-size",
+        type=_positive_int,
+        default=1,
+        metavar="N",
+        help=(
+            "Maximum batch size per transformer forward pass. "
+            "Guided denoisers batch up to 4 guidance passes into a single call. "
+            "Default 1 runs passes sequentially. Set to 4 to batch all passes "
+            "together, which reduces layer-streaming PCIe transfers. "
+            "Example: --max-batch-size 4"
+        ),
+    )
+
+    parser.add_argument(
+        "--quantization",
+        dest="quantization",
+        action=QuantizationAction,
+        nargs="+",
+        metavar=("POLICY", "AMAX_PATH"),
+        default=None,
+        help=(
+            f"Quantization policy: {', '.join(QUANTIZATION_POLICIES)}. "
+            "fp8-cast uses FP8 casting with upcasting during inference. "
+            "fp8-scaled-mm uses FP8 scaled matrix multiplication (optionally provide amax calibration file path). "
+            "Example: --quantization fp8-cast or --quantization fp8-scaled-mm /path/to/amax.json"
+        ),
+    )
+    parser.add_argument(
+        "--compile",
+        action="store_true",
+        help="Enable torch.compile for transformer blocks to optimize performance.",
+    )
+    return parser
+
+
+def new_video_gen_arg_parser(
+    params: PipelineParams = LTX_2_3_PARAMS,
+    distilled: bool = False,
+) -> argparse.ArgumentParser:
+    parser = basic_arg_parser(params=params, distilled=distilled)
     parser.add_argument(
         "--height",
         type=int,
@@ -223,15 +311,6 @@ def basic_arg_parser(
         help=f"Frame rate of the generated video (fps) (default: {params.frame_rate}).",
     )
     parser.add_argument(
-        "--num-inference-steps",
-        type=int,
-        default=params.num_inference_steps,
-        help=(
-            f"Number of denoising steps in the diffusion sampling process. "
-            f"Higher values improve quality but increase generation time (default: {params.num_inference_steps})."
-        ),
-    )
-    parser.add_argument(
         "--image",
         dest="images",
         action=ImageAction,
@@ -247,42 +326,28 @@ def basic_arg_parser(
             "--image path/to/image2.jpg 160 0.9 0"
         ),
     )
-    parser.add_argument(
-        "--lora",
-        dest="lora",
-        action=LoraAction,
-        nargs="+",  # Accept 1-2 arguments per use (path and optional strength); validation is handled in LoraAction
-        metavar=("PATH", "STRENGTH"),
-        default=[],
-        help=(
-            "LoRA (Low-Rank Adaptation) model: path to model file and optional strength "
-            f"(default strength: {DEFAULT_LORA_STRENGTH}). Can be specified multiple times. "
-            "Example: --lora path/to/lora1.safetensors 0.8 --lora path/to/lora2.safetensors"
-        ),
-    )
 
-    parser.add_argument("--enhance-prompt", action="store_true")
-    parser.add_argument(
-        "--quantization",
-        dest="quantization",
-        action=QuantizationAction,
-        nargs="+",
-        metavar=("POLICY", "AMAX_PATH"),
-        default=None,
-        help=(
-            f"Quantization policy: {', '.join(QUANTIZATION_POLICIES)}. "
-            "fp8-cast uses FP8 casting with upcasting during inference. "
-            "fp8-scaled-mm uses FP8 scaled matrix multiplication (optionally provide amax calibration file path). "
-            "Example: --quantization fp8-cast or --quantization fp8-scaled-mm /path/to/amax.json"
-        ),
-    )
+    return parser
+
+
+def video_editing_arg_parser(
+    distilled: bool = True,
+) -> argparse.ArgumentParser:
+    """Base argument parser for video-editing pipelines (retake, extension, inpainting, sticker movement).
+    Uses the same actions and conventions as basic_arg_parser but only the args needed for editing
+    (no height/width/num-frames; resolution comes from input video). Default is distilled checkpoint only.
+    """
+    parser = basic_arg_parser(distilled=distilled)
+    parser.add_argument("--video-path", type=resolve_path, required=True, help="Path to the source video.")
+    parser.add_argument("--start-time", type=float, required=True, help="Start time of the region to regenerate (s).")
+    parser.add_argument("--end-time", type=float, required=True, help="End time of the region to regenerate (s).")
     return parser
 
 
 def default_1_stage_arg_parser(params: PipelineParams = LTX_2_3_PARAMS) -> argparse.ArgumentParser:
     video_guider = params.video_guider_params
     audio_guider = params.audio_guider_params
-    parser = basic_arg_parser(params=params)
+    parser = new_video_gen_arg_parser(params=params)
     parser.add_argument(
         "--negative-prompt",
         type=str,
@@ -476,7 +541,7 @@ def hq_2_stage_arg_parser(params: PipelineParams = LTX_2_3_HQ_PARAMS) -> argpars
 
 
 def default_2_stage_distilled_arg_parser(params: PipelineParams = LTX_2_3_PARAMS) -> argparse.ArgumentParser:
-    parser = basic_arg_parser(params=params, distilled=True)
+    parser = new_video_gen_arg_parser(params=params, distilled=True)
     parser.set_defaults(height=params.stage_2_height, width=params.stage_2_width)
     # Update help text to reflect 2-stage defaults
     for action in parser._actions:

@@ -13,7 +13,7 @@ from ..embeddings_connector import (
     Embeddings1DConnectorConfigurator,
 )
 from ..embeddings_processor import EmbeddingsProcessor
-from .base_encoder import GemmaTextEncoder
+from ..encoders.base_encoder import GemmaTextEncoder
 from ..feature_extractor import (
     FeatureExtractorV1,
     FeatureExtractorV2,

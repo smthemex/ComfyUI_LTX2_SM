@@ -4,14 +4,14 @@ import torch
 import torch.nn.functional as F
 
 from ...components.patchifiers import AudioPatchifier
-from ..audio_vae.attention import AttentionType, make_attn
-from ..audio_vae.causal_conv_2d import make_conv2d
-from ..audio_vae.causality_axis import CausalityAxis
-from ..audio_vae.downsample import build_downsampling_path
-from ..audio_vae.ops import AudioProcessor, PerChannelStatistics
-from ..audio_vae.resnet import ResnetBlock
-from ..audio_vae.upsample import build_upsampling_path
-from ..audio_vae.vocoder import Vocoder
+from .attention import AttentionType, make_attn
+from .causal_conv_2d import make_conv2d
+from .causality_axis import CausalityAxis
+from .downsample import build_downsampling_path
+from .ops import AudioProcessor, PerChannelStatistics
+from .resnet import ResnetBlock
+from .upsample import build_upsampling_path
+from .vocoder import Vocoder
 from ..common.normalization import NormType, build_normalization_layer
 from ...types import Audio, AudioLatentShape
 

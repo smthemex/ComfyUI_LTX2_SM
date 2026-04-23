@@ -1,6 +1,6 @@
 import torch
 
-from..exceptions import ConditioningError
+from ..exceptions import ConditioningError
 from ..item import ConditioningItem
 from ...tools import LatentTools
 from ...types import LatentState
