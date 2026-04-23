@@ -77,11 +77,22 @@ class Res2sDiffusionStep(DiffusionStepProtocol):
         sigmas: torch.Tensor,
         step_index: int,
         noise: torch.Tensor,
+        eta: float = 0.5,
     ) -> torch.Tensor:
-        """Advance one step with SDE noise injection via get_sde_coeff."""
+        """Advance one step with SDE noise injection via get_sde_coeff.
+        Args:
+            sample: Current noisy sample.
+            denoised_sample: Denoised prediction from the model.
+            sigmas: Noise schedule tensor.
+            step_index: Current step index in the schedule.
+            noise: Random noise tensor for stochastic injection.
+            eta: Controls stochastic noise injection strength (0=deterministic, 1=maximum). Default 0.5.
+        Returns:
+            Next sample with SDE noise injection applied.
+        """
         sigma = sigmas[step_index]
         sigma_next = sigmas[step_index + 1]
-        alpha_ratio, sigma_down, sigma_up = self.get_sde_coeff(sigma_next, sigma_up=sigma_next * 0.5)
+        alpha_ratio, sigma_down, sigma_up = self.get_sde_coeff(sigma_next, sigma_up=sigma_next * eta)
         output_dtype = denoised_sample.dtype
         if torch.any(sigma_up == 0) or torch.any(sigma_next == 0):
             return denoised_sample

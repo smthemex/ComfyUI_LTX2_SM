@@ -1,8 +1,9 @@
 from enum import Enum
-import gc
 from typing import Any, Callable, List, Optional, Tuple
 import torch
 import torch.nn as nn
+import gc
+import copy
 from ...guidance.perturbations import BatchedPerturbationConfig
 from .adaln import AdaLayerNormSingle, adaln_embedding_coefficient
 from .attention import AttentionCallable, AttentionFunction
@@ -15,250 +16,6 @@ from .transformer_args import (
     TransformerArgsPreprocessor,
 )
 from ...utils import to_denoised
-import copy
-
-class BlockGPUManager_:
-    def __init__(self, device="cuda",block_group_size=1 ):
-        self.device = torch.device(device)
-        self.managed_modules = [] 
-        self.submodule = []    
-        self.block_group_size = block_group_size
-        self._original_model_ref = None
-        self._original_blocks_ref = None
-
-    def setup_for_inference(self, transformer_model, ):
-        self._collect_managed_modules(transformer_model)
-        self._initialize_submodule()
-        return self
-
-    def _collect_managed_modules(self, transformer_model):
-        self.submodule = []
-        self._original_model_ref = transformer_model
-        self._original_blocks_ref = transformer_model.transformer_blocks
-    
-        for attr in ['patchify_proj', 'audio_patchify_proj', 'adaln_single', 
-                     'audio_adaln_single', 'caption_projection','audio_caption_projection',
-                     "audio_scale_shift_table", "scale_shift_table","av_ca_video_scale_shift_adaln_single",
-                     "av_ca_audio_scale_shift_adaln_single", "av_ca_a2v_gate_adaln_single",
-                     "av_ca_v2a_gate_adaln_single", "prompt_adaln_single", "audio_prompt_adaln_single",
-                     "cross_attn_rope", "cross_attn_audio_rope",  
-                     "norm_out", "proj_out", "audio_norm_out","audio_proj_out",
-                     ]:
-            if hasattr(transformer_model, attr):
-                self.submodule.append(getattr(transformer_model, attr))
-
-        self.managed_modules = [None] * len(self._original_blocks_ref)
-
-    def _get_block(self, block_index):
-        """按需获取层，避免一次性加载所有层"""
-        if self.managed_modules[block_index] is None:
-            block = self._original_blocks_ref[block_index]
-            block.to(self.device)
-            self.managed_modules[block_index] = block
-        return self.managed_modules[block_index]
-    
-    def _pass_block(self, block_index):
-        if block_index > 0 and (block_index - 1) < len(self.managed_modules):
-            prev_block = self.managed_modules[block_index - 1]
-            if prev_block is not None and hasattr(prev_block, 'to'):
-                prev_block.to('cpu')
-                self.managed_modules[block_index - 1] = None
-            del prev_block
-            torch.cuda.empty_cache()
-            gc.collect()
-
-
-    def _initialize_submodule(self):
-        for module in self.submodule:
-            if hasattr(module, 'to'):
-                module.to(self.device)
-        return self
-
-    def unload_blocks_to_cpu(self):
-        for  module in self.managed_modules:
-            if hasattr(module, 'to'):
-                module.to('cpu')
-        
-        for module in self.submodule:
-            if hasattr(module, 'to'):
-                module.to('cpu', non_blocking=True)
-        torch.cuda.empty_cache()
-        return self
-
-
-class BlockGPUManager:
-    def __init__(self, device="cuda", block_group_size=2):
-        self.device = torch.device(device)
-        self.managed_modules = []
-        self.submodule = []
-        self.block_group_size = block_group_size  # 每次加载的连续层数
-        self._original_model_ref = None
-        self._original_layers_ref = None
-        self._num_groups = 0  # 总批次数
-        self._current_group = -1  # 当前正在计算的批次索引
-        self._prefetched_group = -1  # 预取中的批次索引
-        self._group_loaded: list[bool] = []
-        self._group_ready_events: list[Optional[torch.cuda.Event]] = []
-        self._prefetch_stream: Optional[torch.cuda.Stream] = None
-        self._parameter_pinned = False  # 只需 pin memory 一次
-
-    def setup_for_inference(self, transformer_model):
-        self._collect_managed_modules(transformer_model)
-        self._initialize_submodule()
-        self._create_prefetch_stream()
-        return self
-
-    def _create_prefetch_stream(self):
-        if self.device.type == "cuda":
-            self._prefetch_stream = torch.cuda.Stream(device=self.device)
-        else:
-            self._prefetch_stream = None
-
-    def _collect_managed_modules(self, transformer_model):
-        self.submodule = []
-        self._original_model_ref = transformer_model
-        self._original_layers_ref = transformer_model.transformer_blocks
-        self._num_groups = (len(self._original_layers_ref) + self.block_group_size - 1) // self.block_group_size
-        print(f"Total number of layers: {len(self._original_layers_ref)}")
-        print(f"Total number of groups: {self._num_groups}")
-
-        # pin memory only for CPU path; if weights are already on GPU, move them back first.
-        if self.device.type == "cuda" and not self._parameter_pinned:
-            for layer in self._original_layers_ref:
-                if any(p.is_cuda for p in layer.parameters()):
-                    layer.to("cpu")
-                for p in layer.parameters():
-                    if not p.is_pinned():
-                        p.pin_memory()
-                for b in layer.buffers():
-                    if not b.is_pinned():
-                        b.pin_memory()
-            self._parameter_pinned = True
-
-        for attr in ['patchify_proj', 'audio_patchify_proj', 'adaln_single', 
-                     'audio_adaln_single', 'caption_projection','audio_caption_projection',
-                     "audio_scale_shift_table", "scale_shift_table","av_ca_video_scale_shift_adaln_single",
-                     "av_ca_audio_scale_shift_adaln_single", "av_ca_a2v_gate_adaln_single",
-                     "av_ca_v2a_gate_adaln_single", "prompt_adaln_single", "audio_prompt_adaln_single",
-                     "cross_attn_rope", "cross_attn_audio_rope",  
-                     "norm_out", "proj_out", "audio_norm_out","audio_proj_out",
-                     ]:
-            if hasattr(transformer_model, attr):
-                self.submodule.append(getattr(transformer_model, attr))
-
-        self.managed_modules = [None] * self._num_groups
-        self._group_loaded = [False] * self._num_groups
-        self._group_ready_events = [None] * self._num_groups
-
-    def _get_layer(self, layer_index):
-        """按需获取批次中的层，实现双缓冲预取"""
-        group_index = layer_index // self.block_group_size
-        local_idx = layer_index % self.block_group_size
-
-        next_group = group_index + 1
-        keep = {group_index}
-        if next_group < self._num_groups:
-            keep.add(next_group)
-
-        
-        self._unload_unused_groups(keep=keep)
-
-        if not self._group_loaded[group_index]:
-            self._prefetch_group(group_index)
-        self._wait_group_ready(group_index)
-
-        if next_group < self._num_groups and not self._group_loaded[next_group]:
-            self._prefetch_group(next_group)
-
-        self._current_group = group_index
-        return self.managed_modules[group_index][local_idx]
-
-    def _prefetch_group(self, group_index):
-        if self._group_loaded[group_index]:
-            return
-
-        start_idx = group_index * self.block_group_size
-        end_idx = min(start_idx + self.block_group_size, len(self._original_layers_ref))
-
-        group = nn.ModuleList()
-        if self._prefetch_stream is not None:
-            with torch.cuda.stream(self._prefetch_stream):
-                for layer in self._original_layers_ref[start_idx:end_idx]:
-                    #cpu_layer = copy.deepcopy(layer)
-                    layer.to(self.device, non_blocking=True)
-                    group.append(layer)
-                    # cpu_layer = copy.deepcopy(layer)
-                    # cpu_layer.to(self.device, non_blocking=True)
-                    # group.append(cpu_layer)
-                event = torch.cuda.Event()
-                event.record(self._prefetch_stream)
-            self._group_ready_events[group_index] = event
-        else:
-            for layer in self._original_layers_ref[start_idx:end_idx]:
-                layer.to(self.device)
-                group.append(layer)
-                # cpu_layer = copy.deepcopy(layer)
-                # cpu_layer.to(self.device)
-                # group.append(cpu_layer)
-            self._group_ready_events[group_index] = None
-
-        self.managed_modules[group_index] = group
-        self._group_loaded[group_index] = True
-        self._prefetched_group = group_index
-
-    def _wait_group_ready(self, group_index):
-        event = self._group_ready_events[group_index]
-        if event is not None:
-            torch.cuda.current_stream(self.device).wait_event(event)
-            self._group_ready_events[group_index] = None
-
-    def _unload_unused_groups(self, keep: set[int]):
-        for index in range(self._num_groups):
-            if self._group_loaded[index] and index not in keep:
-                self._unload_group(index)
-
-    def _unload_group(self, group_index):
-        if not self._group_loaded[group_index]:
-            return
-
-        group = self.managed_modules[group_index]
-        if group is not None:
-            for layer in group:
-                if hasattr(layer, 'to'):
-                    layer.to('cpu')
-                    layer = None
-
-        self.managed_modules[group_index] = None
-        self._group_loaded[group_index] = False
-        self._group_ready_events[group_index] = None
-        if self._current_group == group_index:
-            self._current_group = -1
-        if self._prefetched_group == group_index:
-            self._prefetched_group = -1
-        del group
-        torch.cuda.empty_cache()
-        gc.collect()
-
-    def _initialize_submodule(self):
-        for module in self.submodule:
-            if hasattr(module, 'to'):
-                module.to(self.device)
-        return self
-
-    def unload_blocks_to_cpu(self):
-        # 卸载所有批次
-        for group_index in range(self._num_groups):
-            self._unload_group(group_index)
-        self._current_group = -1
-        self._prefetched_group = -1
-        
-        # 将embedder和output模块移到CPU
-        for module in self.submodule:
-            if hasattr(module, 'to'):
-                module.to('cpu')
-        torch.cuda.empty_cache()
-        return self
-
 
 
 class LTXModelType(Enum):
@@ -363,11 +120,11 @@ class LTXModel(torch.nn.Module):
             attention_type=attention_type,
             apply_gated_attention=apply_gated_attention,
         )
-        
+
     @property
     def _adaln_embedding_coefficient(self) -> int:
         return adaln_embedding_coefficient(self.cross_attention_adaln)
-        
+
     def _init_video(
         self,
         in_channels: int,
@@ -380,8 +137,8 @@ class LTXModel(torch.nn.Module):
         self.patchify_proj = torch.nn.Linear(in_channels, self.inner_dim, bias=True)
         if caption_projection is not None:
             self.caption_projection = caption_projection
+
         self.adaln_single = AdaLayerNormSingle(self.inner_dim, embedding_coefficient=self._adaln_embedding_coefficient)
-        
 
         self.prompt_adaln_single = (
             AdaLayerNormSingle(self.inner_dim, embedding_coefficient=2) if self.cross_attention_adaln else None
@@ -405,8 +162,10 @@ class LTXModel(torch.nn.Module):
         self.audio_patchify_proj = torch.nn.Linear(in_channels, self.audio_inner_dim, bias=True)
         if caption_projection is not None:
             self.audio_caption_projection = caption_projection
+
         self.audio_adaln_single = AdaLayerNormSingle(
-            self.audio_inner_dim,embedding_coefficient=self._adaln_embedding_coefficient,
+            self.audio_inner_dim,
+            embedding_coefficient=self._adaln_embedding_coefficient,
         )
 
         self.audio_prompt_adaln_single = (
@@ -540,7 +299,6 @@ class LTXModel(torch.nn.Module):
                 apply_gated_attention=apply_gated_attention,
                 cross_attention_adaln=self.cross_attention_adaln,
             )
-            
             if self.model_type.is_video_enabled()
             else None
         )
@@ -585,32 +343,14 @@ class LTXModel(torch.nn.Module):
         video: TransformerArgs | None,
         audio: TransformerArgs | None,
         perturbations: BatchedPerturbationConfig,
-        gpu_manager: BlockGPUManager | None,
+        gpu_manager = None
+    
     ) -> tuple[TransformerArgs, TransformerArgs]:
         """Process transformer blocks for LTXAV."""
-
-        # # Process transformer blocks
-        # for block_index,block in enumerate(self.transformer_blocks):
-        #     if gpu_manager is not None:
-        #         # 加载当前block到GPU
-        #         if block_index < len(gpu_manager.managed_modules):
-        #             module = gpu_manager.managed_modules[block_index]
-        #             if hasattr(module, 'to'):
-        #                 module.to(gpu_manager.device)
-        #                 #print(f"[GPU Manager] 加载dual block {block_index}到GPU")
-                
-        #         # 卸载上一个block（如果是第一个block，则不需要卸载）
-        #         if block_index > 0 and (block_index - 1) < len(gpu_manager.managed_modules):
-        #             prev_module = gpu_manager.managed_modules[block_index - 1]
-        #             if hasattr(prev_module, 'to'):
-        #                 prev_module.to('cpu')
-        #                 #print(f"[GPU Manager] 卸载dual block {block_index-1}到CPU")
         for block_index in range(len(self.transformer_blocks)):
             if gpu_manager is not None:
                 block = gpu_manager._get_layer(block_index)
-                #print(f"[GPU Manager] 使用dual block {block_index}进行前向计算")
                 #gpu_manager._pass_block(block_index) 
-            
             else:
                 block = self.transformer_blocks[block_index]
 
@@ -631,6 +371,31 @@ class LTXModel(torch.nn.Module):
                     audio=audio,
                     perturbations=perturbations,
                 )
+            if gpu_manager is not None:
+                current_group = block_index // gpu_manager.block_group_size
+                next_group = current_group + 1
+                gpu_manager._unload_unused_groups(keep={current_group})
+       
+
+        # # Process transformer blocks
+        # for block in self.transformer_blocks:
+        #     if self._enable_gradient_checkpointing and self.training:
+        #         # Use gradient checkpointing to save memory during training.
+        #         # With use_reentrant=False, we can pass dataclasses directly -
+        #         # PyTorch will track all tensor leaves in the computation graph.
+        #         video, audio = torch.utils.checkpoint.checkpoint(
+        #             block,
+        #             video,
+        #             audio,
+        #             perturbations,
+        #             use_reentrant=False,
+        #         )
+        #     else:
+        #         video, audio = block(
+        #             video=video,
+        #             audio=audio,
+        #             perturbations=perturbations,
+        #         )
 
         return video, audio
 
@@ -655,7 +420,7 @@ class LTXModel(torch.nn.Module):
         return x
 
     def forward(
-        self, video: Modality | None, audio: Modality | None, perturbations: BatchedPerturbationConfig,gpu_manager=None, 
+        self, video: Modality | None, audio: Modality | None, perturbations: BatchedPerturbationConfig,gpu_manager=None
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass for LTX models.
@@ -670,6 +435,7 @@ class LTXModel(torch.nn.Module):
         video_args = self.video_args_preprocessor.prepare(video, audio) if video is not None else None
         audio_args = self.audio_args_preprocessor.prepare(audio, video) if audio is not None else None
         # Process transformer blocks
+        
         video_out, audio_out = self._process_transformer_blocks(
             video=video_args,
             audio=audio_args,
@@ -743,14 +509,143 @@ class X0Model(torch.nn.Module):
         video: Modality | None,
         audio: Modality | None,
         perturbations: BatchedPerturbationConfig,
-        gpu_manager: BlockGPUManager,
+        gpu_manager=None,
     ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
         """
         Denoise the video and audio according to the sigma.
         Returns:
             Denoised video and audio
         """
+        
         vx, ax = self.velocity_model(video, audio, perturbations,gpu_manager)
         denoised_video = to_denoised(video.latent, vx, video.timesteps) if vx is not None else None
         denoised_audio = to_denoised(audio.latent, ax, audio.timesteps) if ax is not None else None
         return denoised_video, denoised_audio
+
+
+class BlockGPUManager:
+    def __init__(self, device="cuda", block_group_size=1,use_gguf=True):
+
+        self.device = torch.device(device)
+        self.managed_modules = [] 
+        self.submodule = []    
+        self.block_group_size = block_group_size  # 每次加载的连续层数
+        self._original_model_ref = None
+        self._original_block_ref = None
+        self._num_groups = 0  # 总批次数
+        self._group_loaded: list[bool] = [] 
+        self.use_gguf = use_gguf
+        
+
+    def setup_for_inference(self, transformer_model):
+        self._collect_managed_modules(transformer_model)
+        self._initialize_submodule()
+        return self
+    
+
+    def _collect_managed_modules(self, transformer_model):
+        self.submodule = []
+        #self._original_model_ref = transformer_model
+        #self.use_gguf = getattr(transformer_model, "use_gguf", False)
+        #self.use_gguf=True
+        self._original_block_ref = transformer_model.transformer_blocks
+
+        self._num_groups = (len(self._original_block_ref) + self.block_group_size - 1) // self.block_group_size
+        print(f"Total number of blocks: {len(self._original_block_ref)}")
+        print(f"Number of groups: {self._num_groups}")
+        for attr in ['patchify_proj', 'audio_patchify_proj', 'adaln_single', 
+                     'audio_adaln_single', 'caption_projection','audio_caption_projection',
+                     "audio_scale_shift_table", "scale_shift_table","av_ca_video_scale_shift_adaln_single",
+                     "av_ca_audio_scale_shift_adaln_single", "av_ca_a2v_gate_adaln_single",
+                     "av_ca_v2a_gate_adaln_single", "prompt_adaln_single", "audio_prompt_adaln_single",
+                     "cross_attn_rope", "cross_attn_audio_rope",  
+                     "norm_out", "proj_out", "audio_norm_out","audio_proj_out",]:
+            if hasattr(transformer_model, attr):
+                self.submodule.append(getattr(transformer_model, attr))
+
+        self.managed_modules = [None] * self._num_groups
+        self._group_loaded = [False] * self._num_groups
+
+    def _load_group(self, group_index):
+        """加载指定组的数据块"""
+        if self._group_loaded[group_index]:
+            return
+        
+        start_idx = group_index * self.block_group_size
+        end_idx = min(start_idx + self.block_group_size, len(self._original_block_ref))
+        
+        group = nn.ModuleList()
+        for layer in self._original_block_ref[start_idx:end_idx]:
+            # 深拷贝当前层
+            if not self.use_gguf:
+                layer = copy.deepcopy(layer)
+            else:
+                # 记录原始设备以便后续恢复
+                layer._original_device = next(layer.parameters()).device
+            # 移动到目标设备
+            layer.to(self.device)
+            group.append(layer)
+        
+        self.managed_modules[group_index] = group
+        self._group_loaded[group_index] = True
+
+    def _unload_group(self, group_index):
+        """卸载指定组的数据块"""
+        if not self._group_loaded[group_index]:
+            return
+        
+        group = self.managed_modules[group_index]
+        if self.use_gguf:
+            # 将层移回原始设备
+            for layer in group:
+                if hasattr(layer, '_original_device'):
+                    layer.to(layer._original_device)
+                    delattr(layer, '_original_device')
+        self.managed_modules[group_index] = None
+        self._group_loaded[group_index] = False
+        
+        # 显式删除引用
+        group = None
+        del group
+        
+        # 清理GPU缓存
+        torch.cuda.empty_cache()
+
+
+    def _get_layer(self, layer_index):
+        """按需获取层，实现按组加载"""
+        group_index = layer_index // self.block_group_size
+        local_idx = layer_index % self.block_group_size
+        
+        # 如果组未加载，则加载该组
+        if not self._group_loaded[group_index]:
+            self._load_group(group_index)
+        
+        # 返回组中的指定层
+        return self.managed_modules[group_index][local_idx]
+
+    def _unload_unused_groups(self, keep: set[int]):
+        """卸载不需要的组"""
+        for index in range(self._num_groups):
+            if self._group_loaded[index] and index not in keep:
+                self._unload_group(index)
+                
+    def _initialize_submodule(self):
+        for module in self.submodule:
+            if hasattr(module, 'to'):
+                module.to(self.device)
+        return self
+    
+    def unload_all_blocks_to_cpu(self):
+        # 卸载所有组
+        for group_index in range(self._num_groups):
+            self._unload_group(group_index)
+        
+        # 将embedder和output模块移到CPU
+        for module in self.submodule:
+            if hasattr(module, 'to'):
+                module.to('cpu', non_blocking=True)
+        
+        torch.cuda.empty_cache()
+        return self
+

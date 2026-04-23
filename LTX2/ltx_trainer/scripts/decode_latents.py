@@ -15,6 +15,7 @@ import torch
 import torchaudio
 import torchvision.utils
 import typer
+from einops import rearrange
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -27,9 +28,15 @@ from rich.progress import (
 )
 from transformers.utils.logging import disable_progress_bar
 
+from ltx_core.model.video_vae import SpatialTilingConfig, TemporalTilingConfig, TilingConfig
 from ltx_trainer import logger
 from ltx_trainer.model_loader import load_audio_vae_decoder, load_video_vae_decoder, load_vocoder
 from ltx_trainer.video_utils import save_video
+
+DEFAULT_TILE_SIZE_PIXELS = 512  # Spatial tile size in pixels (must be ≥64 and divisible by 32)
+DEFAULT_TILE_OVERLAP_PIXELS = 128  # Spatial tile overlap in pixels (must be divisible by 32)
+DEFAULT_TILE_SIZE_FRAMES = 128  # Temporal tile size in frames (must be ≥16 and divisible by 8)
+DEFAULT_TILE_OVERLAP_FRAMES = 24  # Temporal tile overlap in frames (must be divisible by 8)
 
 disable_progress_bar()
 console = Console()
@@ -60,15 +67,14 @@ class LatentsDecoder:
         self.vae = None
         self.audio_vae = None
         self.vocoder = None
-        self._load_model(model_path, vae_tiling, with_audio)
+        self.vae_tiling = vae_tiling
 
-    def _load_model(self, model_path: str, vae_tiling: bool, with_audio: bool = False) -> None:
+        self._load_model(model_path, with_audio)
+
+    def _load_model(self, model_path: str, with_audio: bool = False) -> None:
         """Initialize and load the VAE model(s)."""
         with console.status(f"[bold]Loading video VAE decoder from {model_path}...", spinner="dots"):
             self.vae = load_video_vae_decoder(model_path, device=self.device, dtype=torch.bfloat16)
-
-            if vae_tiling:
-                self.vae.enable_tiling()
 
         if with_audio:
             with console.status(f"[bold]Loading audio VAE decoder from {model_path}...", spinner="dots"):
@@ -122,61 +128,6 @@ class LatentsDecoder:
 
         logger.info(f"Decoding complete! Videos saved to {output_dir}")
 
-    def _process_file(self, latent_file: Path, output_dir: Path, seed: int | None) -> None:
-        """Process a single latent file."""
-        # Load the latent data
-        data = torch.load(latent_file, map_location=self.device, weights_only=False)
-
-        # Get latents - handle both old patchified [seq_len, C] and new [C, F, H, W] formats
-        latents = data["latents"]
-        num_frames = data["num_frames"]
-        height = data["height"]
-        width = data["width"]
-
-        # Check if latents need reshaping (old patchified format)
-        if latents.dim() == 2:
-            # Old format: [seq_len, C] -> reshape to [C, F, H, W]
-            _seq_len, channels = latents.shape
-            latents = latents.reshape(num_frames, height, width, channels)
-            latents = latents.permute(3, 0, 1, 2)  # [F, H, W, C] -> [C, F, H, W]
-
-        # Add batch dimension: [C, F, H, W] -> [1, C, F, H, W]
-        latents = latents.unsqueeze(0).to(device=self.device, dtype=torch.bfloat16)
-
-        # Create generator only if seed is provided
-        generator = None
-        if seed is not None:
-            generator = torch.Generator(device=self.device)
-            generator.manual_seed(seed)
-
-        # Decode the video (VAE decoder uses forward/call, not decode method)
-        video = self.vae(latents)  # [B, C, F, H, W]
-
-        # Convert to [F, C, H, W] format and normalize to [0, 1]
-        video = video[0]  # Remove batch dimension -> [C, F, H, W]
-        video = video.permute(1, 0, 2, 3)  # [C, F, H, W] -> [F, C, H, W]
-        video = (video + 1) / 2  # Denormalize from [-1, 1] to [0, 1]
-        video = video.clamp(0, 1)
-
-        # Determine output format and save
-        is_image = video.shape[0] == 1
-        if is_image:
-            # Save as PNG for single frame
-            output_path = output_dir / f"{latent_file.stem}.png"
-            torchvision.utils.save_image(
-                video[0],  # [C, H, W] in [0, 1]
-                str(output_path),
-            )
-        else:
-            # Save as MP4 for video using PyAV-based save_video
-            output_path = output_dir / f"{latent_file.stem}.mp4"
-            fps = data.get("fps", 24)  # Use stored FPS or default to 24
-            save_video(
-                video_tensor=video,  # [F, C, H, W] in [0, 1]
-                output_path=output_path,
-                fps=fps,
-            )
-
     @torch.inference_mode()
     def decode_audio(self, latents_dir: Path, output_dir: Path) -> None:
         """Decode all audio latent files in the directory recursively.
@@ -226,6 +177,87 @@ class LatentsDecoder:
 
         logger.info(f"Audio decoding complete! Audio files saved to {output_dir}")
 
+    def _process_file(self, latent_file: Path, output_dir: Path, seed: int | None) -> None:
+        """Process a single latent file."""
+        # Load the latent data
+        data = torch.load(latent_file, map_location=self.device, weights_only=False)
+
+        # Get latents - handle both old patchified [seq_len, C] and new [C, F, H, W] formats
+        latents = data["latents"]
+        num_frames = data["num_frames"]
+        height = data["height"]
+        width = data["width"]
+
+        # Check if latents need reshaping (old patchified format)
+        if latents.dim() == 2:
+            # Old format: [seq_len, C] -> reshape to [C, F, H, W]
+            latents = rearrange(latents, "(f h w) c -> c f h w", f=num_frames, h=height, w=width)
+
+        # Add batch dimension: [C, F, H, W] -> [1, C, F, H, W]
+        latents = latents.unsqueeze(0).to(device=self.device, dtype=torch.bfloat16)
+
+        # Create generator only if seed is provided
+        generator = None
+        if seed is not None:
+            generator = torch.Generator(device=self.device)
+            generator.manual_seed(seed)
+
+        # Decode the video
+        video = self._decode_video(latents, generator)
+
+        # Determine output format and save
+        is_image = video.shape[0] == 1
+        if is_image:
+            # Save as PNG for single frame
+            output_path = output_dir / f"{latent_file.stem}.png"
+            torchvision.utils.save_image(
+                video[0],  # [C, H, W] in [0, 1]
+                str(output_path),
+            )
+        else:
+            # Save as MP4 for video using PyAV-based save_video
+            output_path = output_dir / f"{latent_file.stem}.mp4"
+            fps = data.get("fps", 24)  # Use stored FPS or default to 24
+            save_video(
+                video_tensor=video,  # [F, C, H, W] in [0, 1]
+                output_path=output_path,
+                fps=fps,
+            )
+
+    def _decode_video(self, latents: torch.Tensor, generator: torch.Generator | None = None) -> torch.Tensor:
+        """Decode latents to video frames."""
+        if self.vae_tiling:
+            # Use tiled decoding for reduced VRAM
+            tiling_config = TilingConfig(
+                spatial_config=SpatialTilingConfig(
+                    tile_size_in_pixels=DEFAULT_TILE_SIZE_PIXELS,
+                    tile_overlap_in_pixels=DEFAULT_TILE_OVERLAP_PIXELS,
+                ),
+                temporal_config=TemporalTilingConfig(
+                    tile_size_in_frames=DEFAULT_TILE_SIZE_FRAMES,
+                    tile_overlap_in_frames=DEFAULT_TILE_OVERLAP_FRAMES,
+                ),
+            )
+            chunks = list(
+                self.vae.tiled_decode(
+                    latents,
+                    tiling_config=tiling_config,
+                    generator=generator,
+                )
+            )
+            # Concatenate along temporal dimension
+            video = torch.cat(chunks, dim=2)  # [B, C, F, H, W]
+        else:
+            # Standard full decoding
+            video = self.vae(latents, generator=generator)  # [B, C, F, H, W]
+
+        # Convert to [F, C, H, W] format and normalize to [0, 1]
+        video = rearrange(video, "1 c f h w -> f c h w")
+        video = (video + 1) / 2  # Denormalize from [-1, 1] to [0, 1]
+        video = video.clamp(0, 1)
+
+        return video
+
     def _process_audio_file(self, latent_file: Path, output_dir: Path) -> None:
         """Process a single audio latent file."""
         # Load the latent data
@@ -239,8 +271,7 @@ class LatentsDecoder:
         if latents.dim() == 2:
             # Old format: [seq_len, channels] where seq_len = time * freq
             # Reshape to [C, T, F]
-            latents = latents.reshape(num_time_steps, freq_bins, -1)  # [T, F, C]
-            latents = latents.permute(2, 0, 1)  # [T, F, C] -> [C, T, F]
+            latents = rearrange(latents, "(t f) c -> c t f", t=num_time_steps, f=freq_bins)
 
         # Add batch dimension: [C, T, F] -> [1, C, T, F]
         latents = latents.unsqueeze(0)
@@ -256,7 +287,7 @@ class LatentsDecoder:
 
         # Save as WAV
         output_path = output_dir / f"{latent_file.stem}.wav"
-        sample_rate = self.vocoder.output_sample_rate
+        sample_rate = self.vocoder.output_sampling_rate
         torchaudio.save(str(output_path), waveform[0].cpu(), sample_rate)
 
 

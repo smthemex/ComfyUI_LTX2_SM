@@ -125,8 +125,18 @@ class TrainingStrategy(ABC):
             audio_pred: Audio prediction from the transformer model (None for video-only)
             inputs: The prepared model inputs containing targets and masks
         Returns:
-            Scalar loss tensor
+            Per-element loss tensor of shape [B,]. The trainer reduces to a scalar
+            before backward(). Returning unreduced loss enables per-sigma-bucket tracking.
         """
+
+    def get_checkpoint_metadata(self) -> dict[str, Any]:
+        """Get strategy-specific metadata to include in checkpoint files.
+        Override this method in subclasses to add custom metadata,
+        e.g. any parameters that a downstream inference pipeline may need.
+        Returns:
+            Dictionary of metadata key-value pairs (values must be JSON-serializable)
+        """
+        return {}
 
     def _get_video_positions(
         self,

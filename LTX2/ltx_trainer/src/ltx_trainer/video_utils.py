@@ -14,6 +14,9 @@ from torch import Tensor
 
 def get_video_frame_count(video_path: str | Path) -> int:
     """Get the number of frames in a video file.
+    Tries three approaches in order: stream metadata, duration*fps estimate,
+    full decode. The estimate may be off by a few frames for VFR videos or
+    containers with edit lists — exact for the min_frames filtering use case.
     Args:
         video_path: Path to the video file
     Returns:
@@ -21,11 +24,19 @@ def get_video_frame_count(video_path: str | Path) -> int:
     """
     with av.open(str(video_path)) as container:
         video_stream = container.streams.video[0]
-        frame_count = video_stream.frames
-        if frame_count == 0:
-            # Fallback: count frames by decoding
-            frame_count = sum(1 for _ in container.decode(video=0))
-    return frame_count
+
+        if video_stream.frames > 0:
+            return video_stream.frames
+
+        # Fast estimate from container metadata (avoids full decode).
+        # Uses Fraction arithmetic to prevent float precision loss.
+        rate = video_stream.average_rate or video_stream.base_rate
+        if video_stream.duration and video_stream.time_base and rate:
+            duration = Fraction(video_stream.duration) * Fraction(video_stream.time_base)
+            return round(duration * Fraction(rate))
+
+        # Last resort: full decode (very slow for 4K)
+        return sum(1 for _ in container.decode(video=0))
 
 
 def read_video(video_path: str | Path, max_frames: int | None = None) -> tuple[Tensor, float]:

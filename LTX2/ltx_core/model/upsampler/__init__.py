@@ -1,7 +1,7 @@
 """Latent upsampler model components."""
 
-from ..upsampler.model import LatentUpsampler, upsample_video
-from ..upsampler.model_configurator import LatentUpsamplerConfigurator
+from .model import LatentUpsampler, upsample_video
+from .model_configurator import LatentUpsamplerConfigurator
 
 __all__ = [
     "LatentUpsampler",

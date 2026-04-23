@@ -1,7 +1,7 @@
 from ...loader.sd_ops import SDOps
 from ..model_protocol import ModelConfigurator
-from ..video_vae.enums import LogVarianceType, NormLayerType, PaddingModeType
-from ..video_vae.video_vae import VideoDecoder, VideoEncoder
+from .enums import LogVarianceType, NormLayerType, PaddingModeType
+from .video_vae import VideoDecoder, VideoEncoder
 
 
 class VideoEncoderConfigurator(ModelConfigurator[VideoEncoder]):

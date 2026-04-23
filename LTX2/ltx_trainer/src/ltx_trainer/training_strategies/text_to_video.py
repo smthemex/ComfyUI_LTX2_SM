@@ -163,6 +163,7 @@ class TextToVideoStrategy(TrainingStrategy):
         # Create video Modality
         video_modality = Modality(
             enabled=True,
+            sigma=sigmas,
             latent=noisy_video,
             timesteps=video_timesteps,
             positions=video_positions,
@@ -254,6 +255,7 @@ class TextToVideoStrategy(TrainingStrategy):
         audio_modality = Modality(
             enabled=True,
             latent=noisy_audio,
+            sigma=sigmas,
             timesteps=audio_timesteps,
             positions=audio_positions,
             context=audio_prompt_embeds,
@@ -271,19 +273,19 @@ class TextToVideoStrategy(TrainingStrategy):
         audio_pred: Tensor | None,
         inputs: ModelInputs,
     ) -> Tensor:
-        """Compute masked MSE loss for video and optionally audio."""
-        # Video loss
+        """Compute masked MSE loss for video and optionally audio. Returns [B,]."""
+        # Video loss: per-element mean over (seq, channels), [B,]
         video_loss = (video_pred - inputs.video_targets).pow(2)
         video_loss_mask = inputs.video_loss_mask.unsqueeze(-1).float()
-        video_loss = video_loss.mul(video_loss_mask).div(video_loss_mask.mean())
-        video_loss = video_loss.mean()
+        masked = video_loss.mul(video_loss_mask)
+        video_loss = masked.mean(dim=[-2, -1]) / video_loss_mask.mean(dim=[-2, -1]).clamp(min=1e-8)
 
         # If no audio, return video loss only
         if not self.config.with_audio or audio_pred is None or inputs.audio_targets is None:
             return video_loss
 
-        # Audio loss (no conditioning mask)
-        audio_loss = (audio_pred - inputs.audio_targets).pow(2).mean()
+        # Audio loss: per-element mean over (seq, channels), [B,]
+        audio_loss = (audio_pred - inputs.audio_targets).pow(2).mean(dim=[-2, -1])
 
-        # Combined loss
+        # Combined loss [B,]
         return video_loss + audio_loss

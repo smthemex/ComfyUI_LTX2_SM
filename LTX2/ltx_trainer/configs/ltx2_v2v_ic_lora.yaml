@@ -200,6 +200,12 @@ validation:
     - "/path/to/reference_video_1.mp4"
     - "/path/to/reference_video_2.mp4"
 
+  # Downscale factor for reference videos (for efficient IC-LoRA training)
+  # When > 1, reference videos are processed at 1/n resolution
+  # Must match the --reference-downscale-factor used during dataset preprocessing
+  # Examples: 1 = same resolution, 2 = half resolution (384x384 ref for 768x768 target)
+  reference_downscale_factor: 1
+
   # Negative prompt to avoid unwanted artifacts
   negative_prompt: "worst quality, inconsistent motion, blurry, jittery, distorted"
 
@@ -262,10 +268,11 @@ checkpoints:
   # Number of most recent checkpoints to keep
   # Set to -1 to keep all checkpoints
   keep_last_n: 3
-  
+
   # Precision to use when saving checkpoint weights
   # Options: "bfloat16" (default, smaller files) or "float32" (full precision)
   precision: "bfloat16"
+
 # -----------------------------------------------------------------------------
 # Flow Matching Configuration
 # -----------------------------------------------------------------------------

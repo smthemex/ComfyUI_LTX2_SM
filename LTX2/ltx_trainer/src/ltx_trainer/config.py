@@ -133,6 +133,7 @@ class OptimizationConfig(ConfigBaseModel):
         "cosine",
         "cosine_with_restarts",
         "polynomial",
+        "step",
     ] = Field(
         default="linear",
         description="Type of scheduler to use for training",
@@ -205,6 +206,14 @@ class ValidationConfig(ConfigBaseModel):
         default=None,
         description="List of reference video paths to use for validation. "
         "One video path must be provided for each validation prompt",
+    )
+
+    reference_downscale_factor: int = Field(
+        default=1,
+        description="Downscale factor for reference videos in IC-LoRA validation. "
+        "When > 1, reference videos are processed at 1/n resolution (e.g., 2 means half resolution). "
+        "Must match the factor used during dataset preprocessing.",
+        ge=1,
     )
 
     video_dims: tuple[int, int, int] = Field(
@@ -334,6 +343,41 @@ class ValidationConfig(ConfigBaseModel):
 
         return v
 
+    @model_validator(mode="after")
+    def validate_scaled_reference_dimensions(self) -> "ValidationConfig":
+        """Validate that scaled reference dimensions are valid when reference_downscale_factor > 1."""
+        if self.reference_downscale_factor > 1:
+            width, height, _frames = self.video_dims
+
+            # Validate that downscale factor evenly divides the target dimensions
+            if width % self.reference_downscale_factor != 0:
+                raise ValueError(
+                    f"Width {width} is not evenly divisible by reference_downscale_factor "
+                    f"{self.reference_downscale_factor}. Choose a downscale factor that divides {width} evenly."
+                )
+            if height % self.reference_downscale_factor != 0:
+                raise ValueError(
+                    f"Height {height} is not evenly divisible by reference_downscale_factor "
+                    f"{self.reference_downscale_factor}. Choose a downscale factor that divides {height} evenly."
+                )
+
+            scaled_width = width // self.reference_downscale_factor
+            scaled_height = height // self.reference_downscale_factor
+
+            # Validate scaled dimensions are divisible by 32
+            if scaled_width % 32 != 0:
+                raise ValueError(
+                    f"Scaled reference width {scaled_width} (from {width} / {self.reference_downscale_factor}) "
+                    f"is not divisible by 32. Choose a different downscale factor or adjust video_dims."
+                )
+            if scaled_height % 32 != 0:
+                raise ValueError(
+                    f"Scaled reference height {scaled_height} (from {height} / {self.reference_downscale_factor}) "
+                    f"is not divisible by 32. Choose a different downscale factor or adjust video_dims."
+                )
+
+        return self
+
 
 class CheckpointsConfig(ConfigBaseModel):
     """Configuration for model checkpointing during training"""
@@ -348,6 +392,26 @@ class CheckpointsConfig(ConfigBaseModel):
         default=1,
         description="Number of most recent checkpoints to keep. Set to -1 to keep all checkpoints.",
         ge=-1,
+    )
+
+    precision: Literal["bfloat16", "float32"] = Field(
+        default="bfloat16",
+        description="Precision to use when saving checkpoint weights. Options: 'bfloat16' or 'float32'.",
+    )
+
+    no_resume: bool = Field(
+        default=False,
+        description="When True, ignore any saved training state and start from step 0. "
+        "Model weights from load_checkpoint are still loaded, but optimizer/scheduler "
+        "state and step counter are reset.",
+    )
+
+    save_training_state: Literal["full", "minimal", "off"] = Field(
+        default="minimal",
+        description="Save training state alongside checkpoints for resume. "
+        "'full': optimizer + scheduler + RNG + step (~800MB for LoRA, much larger for full fine-tuning). "
+        "'minimal': scheduler + RNG + step only (~few KB, sufficient for LoRA). "
+        "'off': nothing saved, resume not possible.",
     )
 
 

@@ -1,9 +1,9 @@
 import torch
 from einops import rearrange
 
-from ..upsampler.pixel_shuffle import PixelShuffleND
-from ..upsampler.res_block import ResBlock
-from ..upsampler.spatial_rational_resampler import SpatialRationalResampler
+from .pixel_shuffle import PixelShuffleND
+from .res_block import ResBlock
+from .spatial_rational_resampler import SpatialRationalResampler
 from ..video_vae import VideoEncoder
 
 

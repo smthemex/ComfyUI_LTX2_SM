@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import torch
 
 if TYPE_CHECKING:
-    from ltx_core.types import LatentState
+    from ..types import LatentState
 
 
 def resolve_cross_mask(

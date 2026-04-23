@@ -6,6 +6,11 @@ This guide covers common issues and solutions when training with the LTX-2 train
 
 Memory management is crucial for successful training with LTX-2.
 
+> [!TIP]
+> For GPUs with 32GB VRAM, use the pre-configured low VRAM config:
+> [`configs/ltx2_av_lora_low_vram.yaml`](../configs/ltx2_av_lora_low_vram.yaml)
+> which combines 8-bit optimizer, INT8 quantization, and reduced LoRA rank.
+
 ### Memory Optimization Techniques
 
 #### 1. Enable Gradient Checkpointing

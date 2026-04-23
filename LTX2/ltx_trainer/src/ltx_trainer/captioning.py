@@ -5,7 +5,7 @@ This module provides captioning capabilities for videos with audio using:
 - Gemini Flash: Cloud-based API for audio-visual captioning
 Requirements:
 - Qwen2.5-Omni: transformers>=4.50, torch
-- Gemini Flash: google-generativeai (pip install google-generativeai)
+- Gemini Flash: google-generativeai (uv pip install google-generativeai)
   Set GEMINI_API_KEY or GOOGLE_API_KEY environment variable
 """
 

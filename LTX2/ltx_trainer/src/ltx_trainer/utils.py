@@ -1,40 +1,10 @@
 import io
-import subprocess
 from pathlib import Path
 
 import numpy as np
 import torch
 from PIL import ExifTags, Image, ImageCms, ImageOps
 from PIL.Image import Image as PilImage
-
-from ltx_trainer import logger
-
-
-def get_gpu_memory_gb(device: torch.device) -> float:
-    """
-    Get current GPU memory usage in GB using nvidia-smi
-    Args:
-        device: torch.device to get memory usage for
-    Returns:
-        Current GPU memory usage in GB
-    """
-    try:
-        device_id = device.index if device.index is not None else 0
-        result = subprocess.check_output(
-            [
-                "nvidia-smi",
-                "--query-gpu=memory.used",
-                "--format=csv,nounits,noheader",
-                "-i",
-                str(device_id),
-            ],
-            encoding="utf-8",
-        )
-        return float(result.strip()) / 1024  # Convert MB to GB
-    except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
-        logger.error(f"Failed to get GPU memory from nvidia-smi: {e}")
-        # Fallback to torch
-        return torch.cuda.memory_allocated(device) / 1024**3
 
 
 def open_image_as_srgb(image_path: str | Path | io.BytesIO) -> PilImage:
