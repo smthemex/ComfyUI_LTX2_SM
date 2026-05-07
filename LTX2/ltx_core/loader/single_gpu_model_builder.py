@@ -20,7 +20,7 @@ from .registry import DummyRegistry, Registry
 from .sd_ops import SDOps
 from .sft_loader import SafetensorsModelStateDictLoader
 from ..model.model_protocol import ModelConfigurator, ModelType
-
+from diffusers.quantizers.gguf.utils import dequantize_gguf_tensor
 logger: logging.Logger = logging.getLogger(__name__)
 
 
@@ -336,8 +336,11 @@ class SingleGPUModelBuilder(Generic[ModelType], ModelBuilderProtocol[ModelType],
         hf_quantizer.pre_quantized = True
         
         if lora_sd_and_strengths is not None:
-            print("Applying LoRAs to GGUF model")
-            model_state_dict=apply_loras_gguf(model_state_dict, lora_sd_and_strengths, dtype)
+            try:
+                model_state_dict=apply_loras_gguf(model_state_dict, lora_sd_and_strengths, dtype)
+                print("Applying LoRAs to GGUF model")
+            except Exception as e:
+                print(f"Error applying LoRAs to GGUF model: {e}")
 
         hf_quantizer._process_model_before_weight_loading(
             meta_model,
@@ -383,6 +386,7 @@ def apply_loras_gguf(
     lora_sd_and_strengths: list[LoraStateDictWithStrength],
     dtype: torch.dtype,
 ):
+    
     sd = {}
     device = torch.device("meta")
     for key, weight in model_sd.items():
@@ -394,12 +398,20 @@ def apply_loras_gguf(
         deltas_dtype =  torch.bfloat16
         deltas = _prepare_deltas(lora_sd_and_strengths, key, deltas_dtype, device)
         if deltas is None:
-            deltas = weight
-        elif weight.dtype == torch.bfloat16:
-            deltas.add_(weight)
+            
+            sd[key] = weight
         else:
-            raise ValueError(f"Unsupported dtype: {weight.dtype}")
-        sd[key] = deltas
+            deltas = deltas.to(dtype=deltas_dtype)
+            if  getattr(weight,"quant_type",False):
+                try:
+                    weight = (dequantize_gguf_tensor(weight).to(dtype=deltas_dtype)) + deltas
+                    sd[key] = weight
+                except Exception as e:
+                    print(f"Error dequantizing GGUF weight for {key}: {e}")
+                    sd[key] = weight
+            else:
+                sd[key] = weight + deltas
+        
         del weight,deltas
     del model_sd
     gc.collect()
@@ -528,7 +540,7 @@ def match_state_dict(meta_model, sd,show_num=10):
 
     # 打印匹配的键的数量
     matching_keys = meta_model_keys.intersection(state_dict_keys)
-    print(f"Matching keys count: {len(matching_keys)}")
+    #print(f"Matching keys count: {len(matching_keys)}")
     
     # 打印不在 meta_model 中但在 state_dict 中的键（多余键）
     extra_keys = state_dict_keys - meta_model_keys
@@ -545,7 +557,7 @@ def match_state_dict(meta_model, sd,show_num=10):
             print(f"  - {key}")
     
     # 如果需要，也可以打印部分匹配的键
-    print(f"Sample matching keys: {list(matching_keys)[:5]}")
+    #print(f"Sample matching keys: {list(matching_keys)[:5]}")
 
 def load_gguf_checkpoint_gemma(gguf_checkpoint_path):
 
