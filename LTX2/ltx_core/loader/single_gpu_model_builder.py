@@ -282,6 +282,8 @@ class SingleGPUModelBuilder(Generic[ModelType], ModelBuilderProtocol[ModelType],
         gc.collect()
         if self.load_model == "dit":
             print("use_gguf add lora",use_gguf)
+            lora_sd_and_strengths=[replace_lora_key(lora_sd_and_strength) for lora_sd_and_strength in lora_sd_and_strengths]
+            #match_state_dict(model_state_dict, lora_sd_and_strengths[0].state_dict.sd,show_num=50)
             meta_model= self.set_gguf2meta_model(meta_model,model_state_dict,dtype,device,lora_sd_and_strengths)
             del model_state_dict
             gc.collect()
@@ -298,33 +300,6 @@ class SingleGPUModelBuilder(Generic[ModelType], ModelBuilderProtocol[ModelType],
             del final_sd
             gc.collect()
 
-        # meta_model = self.meta_model(config, self.module_ops)
-        # model_paths = list(self.model_path) if isinstance(self.model_path, tuple) else [self.model_path]
-        # model_state_dict = self.load_sd(model_paths, sd_ops=self.model_sd_ops, registry=self.registry, device=device)
-
-        # lora_strengths = [lora.strength for lora in self.loras]
-        # if not lora_strengths or (min(lora_strengths) == 0 and max(lora_strengths) == 0):
-        #     sd = model_state_dict.sd
-        #     if dtype is not None:
-        #         sd = {key: value.to(dtype=dtype) for key, value in model_state_dict.sd.items()}
-        #     meta_model.load_state_dict(sd, strict=False, assign=True)
-        #     return self._return_model(meta_model, device)
-
-        # lora_state_dicts = [
-        #     self.load_sd([lora.path], sd_ops=lora.sd_ops, registry=self.registry, device=self.lora_load_device)
-        #     for lora in self.loras
-        # ]
-        # lora_sd_and_strengths = [
-        #     LoraStateDictWithStrength(sd, strength)
-        #     for sd, strength in zip(lora_state_dicts, lora_strengths, strict=True)
-        # ]
-        # final_sd = apply_loras(
-        #     model_sd=model_state_dict,
-        #     lora_sd_and_strengths=lora_sd_and_strengths,
-        #     dtype=dtype,
-        #     destination_sd=model_state_dict if isinstance(self.registry, DummyRegistry) else None,
-        # )
-        # meta_model.load_state_dict(final_sd.sd, strict=False, assign=True)
         return self._return_model(meta_model, device)
     
     def set_gguf2meta_model(self,meta_model,model_state_dict,dtype,device,lora_sd_and_strengths=None):
@@ -381,6 +356,26 @@ class SingleGPUModelBuilder(Generic[ModelType], ModelBuilderProtocol[ModelType],
         gc.collect()
         return meta_model.to(dtype=dtype)
 
+def replace_lora_key(lora_sd:LoraStateDictWithStrength):
+    need_replace = False
+    for key,_ in lora_sd.state_dict.sd.items():
+        if key.startswith("diffusion_model.transformer_blocks"):
+           need_replace=True
+           break 
+    if  need_replace:   
+       sd={key.replace("diffusion_model.transformer_blocks", "transformer_blocks"):value for key,value in lora_sd.state_dict.sd.items()} 
+       lora_sd_instance = StateDict(
+            sd=sd, 
+            device=lora_sd.state_dict.device,
+            size=lora_sd.state_dict.size,
+            dtype=lora_sd.state_dict.dtype,
+        )
+       lora_sd_instance = LoraStateDictWithStrength(lora_sd_instance, lora_sd.strength)
+       del sd,lora_sd
+       gc.collect()
+       return lora_sd_instance
+    return lora_sd
+
 def apply_loras_gguf(
     model_sd,
     lora_sd_and_strengths: list[LoraStateDictWithStrength],
@@ -398,14 +393,16 @@ def apply_loras_gguf(
         deltas_dtype =  torch.bfloat16
         deltas = _prepare_deltas(lora_sd_and_strengths, key, deltas_dtype, device)
         if deltas is None:
-            
             sd[key] = weight
         else:
             deltas = deltas.to(dtype=deltas_dtype)
             if  getattr(weight,"quant_type",False):
                 try:
-                    weight = (dequantize_gguf_tensor(weight).to(dtype=deltas_dtype)) + deltas
-                    sd[key] = weight
+                    dequant_weight = dequantize_gguf_tensor(weight).to(dtype=deltas_dtype)
+                    merged_weight = dequant_weight + deltas
+                    del dequant_weight
+                    sd[key] = merged_weight
+                    del merged_weight
                 except Exception as e:
                     print(f"Error dequantizing GGUF weight for {key}: {e}")
                     sd[key] = weight
@@ -534,13 +531,15 @@ def load_gguf_checkpoint(gguf_checkpoint_path, sd_ops=None, return_tensors=False
     return parsed_parameters
 
 def match_state_dict(meta_model, sd,show_num=10):
-
-    meta_model_keys = set(meta_model.state_dict().keys())   
+    if not isinstance(meta_model, dict): 
+        meta_model_keys = set(meta_model.state_dict().keys())   
+    else:
+        meta_model_keys = set(meta_model.keys())
     state_dict_keys = set(sd.keys())
 
     # 打印匹配的键的数量
     matching_keys = meta_model_keys.intersection(state_dict_keys)
-    #print(f"Matching keys count: {len(matching_keys)}")
+    print(f"Matching keys count: {len(matching_keys)}")
     
     # 打印不在 meta_model 中但在 state_dict 中的键（多余键）
     extra_keys = state_dict_keys - meta_model_keys

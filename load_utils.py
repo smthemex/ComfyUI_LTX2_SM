@@ -150,91 +150,87 @@ def get_latents(image_conditioner,image,audio_encoder,audio,width,height,device,
     dtype=torch.bfloat16
     start_time=float(audio_start_time) if regenerate_video else 0.0
     end_time=audio_max_duration if regenerate_video else 0.0
-    if image is not None and image_conditioner is not None:
-        image_list=tensor2pillist_upscale(image, width, height)
-        if len(image_list)>5: #retake
+    if (image is not None or ic_lora_video is not None) and image_conditioner is not None:
+        image_list=tensor2pillist_upscale(image, width, height) if image is not None else []
+        if len(image_list)>5 and ic_lora_video is None:
             video_scale = SpatioTemporalScaleFactors.default()
             image_list=tensor_upscale(image, width, height).to(device,dtype)
             if (image_list.shape[2] - 1) % video_scale.time != 0:
                 snapped = ((num_frames - 1) // video_scale.time) * video_scale.time + 1
                 image_list = image_list[:snapped, :, :,:]
             image_list=image_list[:num_frames, :, :,:]if num_frames<image_list.shape[2] else image_list
-            video_path=""
-            output_shape = get_videostream_metadata(video_path)
+            
+            output_shape = get_videostream_metadata(image_list)
+            output_shape.fps = frame_rate
+            image_list=map_0_1_to_neg1_1(image_list) #map 0-1 to -1-1
             initial_video_latent = image_conditioner(
                 lambda enc: video_latent_from_file(
                     video_encoder=enc,
-                    file_path=video_path,
+                    file_path=image_list,
                     output_shape=output_shape,
                     dtype=dtype,
                     device=device,
                 )
             )
+        elif ic_lora_video is not None: #ic_lora_mode
+            for i,img in enumerate(image_list):
+                img_in=ImageConditioningInput(path=img, strength=strength, frame_idx=i, )
+                images.append(img_in)
+            conditioning_attention_strength=1.0
+            ic_lora_video=ic_lora_video[:num_frames, :, :,:]if num_frames<ic_lora_video.shape[2] else ic_lora_video
+            video_conditioning=[(tensor_upscale(ic_lora_video, width, height).to(device,dtype),1.0)]
+            conditioning_attention_mask = None
             
-            # stage_1_conditionings = _encode_video_for_retake(
-            #     video_encoder=video_encoder,
-            #     video_path=image_list,
-            #     output_shape=stage_1_output_shape,
-            #     dtype=dtype,
-            #     device=device,
-            #     )
-            
-            # stage_2_conditionings: list[ConditioningItem] = [
-            #     TemporalRegionMask(
-            #         start_time=float(audio_start_time) if regenerate_video else 0.0,
-            #         end_time=audio_max_duration if regenerate_video else 0.0,
-            #         fps=frame_rate,
-            #     )
-            # ]
+            if ic_lora_mask is not None:
+                mask_strength = 1.0
+                conditioning_attention_strength = mask_strength
+                conditioning_attention_mask = load_mask_video(
+                    mask_path=ic_lora_mask,
+                    height=height,  # Stage 1 operates at half resolution
+                    width=width,
+                    num_frames=num_frames,
+                )
+           
+            stage_1_conditionings = image_conditioner(
+                lambda enc: ic_create_conditionings(
+                    images=images,
+                    video_conditioning=video_conditioning,
+                    height=stage_1_output_shape.height,
+                    width=stage_1_output_shape.width,
+                    video_encoder=enc,
+                    num_frames=num_frames,
+                    conditioning_attention_strength=conditioning_attention_strength,
+                    conditioning_attention_mask=conditioning_attention_mask,
+                    dtype=dtype,
+                    device = device,
+                )
+            )
+            stage_2_conditionings = image_conditioner(
+                lambda enc: combined_image_conditionings(
+                    images=images,
+                    height=stage_2_output_shape.height,
+                    width=stage_2_output_shape.width,
+                    video_encoder=enc,
+                    dtype=dtype,
+                    device=device,
+                )
+            )
         else:
             for i,img in enumerate(image_list):
                 img_in=ImageConditioningInput(path=img, strength=strength, frame_idx=i, )
                 images.append(img_in)
-            # if len(image_list)>1: # keyframe
-            #     cond_fn=image_conditionings_by_adding_guiding_latent
-            # else:
-            #     cond_fn=combined_image_conditionings
             torch.cuda.empty_cache()
             cleanup_memory()
-            if ic_lora_video is not None: #ic_lora
-                conditioning_attention_strength=1.0
-                video_conditioning=[(tensor_upscale(image, width, height).to(device,dtype),1.0)]
-                conditioning_attention_mask = None
-                conditioning_attention_strength = 1.0
-                if ic_lora_mask is not None:
-                    mask_strength = 1.0
-                    conditioning_attention_strength = mask_strength
-                    conditioning_attention_mask = load_mask_video(
-                        mask_path=ic_lora_mask,
-                        height=height,  # Stage 1 operates at half resolution
-                        width=width,
-                        num_frames=num_frames,
-                    )
-                stage_1_conditionings = image_conditioner(
-                    lambda enc: ic_create_conditionings(
-                        images=images,
-                        video_conditioning=video_conditioning,
-                        height=stage_1_output_shape.height,
-                        width=stage_1_output_shape.width,
-                        video_encoder=enc,
-                        num_frames=num_frames,
-                        conditioning_attention_strength=conditioning_attention_strength,
-                        conditioning_attention_mask=conditioning_attention_mask,
-                        dtype=dtype,
-                        device = device,
-                    )
+            stage_1_conditionings = image_conditioner(
+                lambda enc: combined_image_conditionings(
+                    images=images,
+                    height=stage_1_output_shape.height,
+                    width=stage_1_output_shape.width,
+                    video_encoder=enc,
+                    dtype=dtype,
+                    device=device,
                 )
-            else:
-                stage_1_conditionings = image_conditioner(
-                    lambda enc: combined_image_conditionings(
-                        images=images,
-                        height=stage_1_output_shape.height,
-                        width=stage_1_output_shape.width,
-                        video_encoder=enc,
-                        dtype=dtype,
-                        device=device,
-                    )
-                )
+            )
 
             stage_2_conditionings = image_conditioner(
                 lambda enc: combined_image_conditionings(
@@ -462,7 +458,7 @@ def ic_create_conditionings(
             )
         ref_height = height // scale
         ref_width = width // scale
-
+        tiling_config=TilingConfig.default()
         for video_path, strength in video_conditioning:
             # Load video at scaled-down resolution (if scale > 1)
             # frame_gen = decode_video_by_frame(path=video_path, frame_cap=num_frames, device=self.device)
@@ -477,8 +473,9 @@ def ic_create_conditionings(
             #         device=device,
             #     )
             # else:
-            video = video_path.permute(3, 0, 1, 2).unsqueeze(0) # FHWC-->BCFHW
-            encoded_video = video_encoder(video)
+            video=map_0_1_to_neg1_1(video_path)
+            video = video.permute(3, 0, 1, 2).unsqueeze(0) # FHWC-->BCFHW
+            encoded_video = video_encoder.tiled_encode(video,tiling_config)
             reference_video_shape = VideoLatentShape.from_torch_shape(encoded_video.shape)
 
             # Build attention_mask for ConditioningItemAttentionStrengthWrapper
@@ -526,9 +523,10 @@ def _encode_video_for_retake(
     #         device=device,
     #     )  # (1, C, F, H, W)
     # else:
-    pixel_video = video_path.permute(3, 0, 1, 2).unsqueeze(0) # FHWC-->BCFHW
-    return video_encoder(pixel_video)
-
+    tiling_config=TilingConfig.default()
+    pixel_video=map_0_1_to_neg1_1(video_path)
+    pixel_video = pixel_video.permute(3, 0, 1, 2).unsqueeze(0) # FHWC-->BCFHW
+    return video_encoder.tiled_encode(pixel_video,tiling_config)
 
 def _encode_audio_for_retake(
     audio_encoder: torch.nn.Module,
@@ -587,3 +585,22 @@ def  save_lat_emb(data1,data2,mode=""):
         if os.path.exists(default_data2_path):
             default_data2_path=os.path.join(folder_paths.get_output_directory(),f"{data2_prefix}_sm_{prefix}.pt")
         torch.save(data2,default_data2_path)
+
+def map_0_1_to_neg1_1(t):
+    if not torch.is_tensor(t):
+        t = torch.tensor(t)
+    t = t.float()
+    try:
+        vmax = float(t.max())
+    except Exception:
+        vmax = 1.0
+    if vmax > 2.0:
+        t = t / 255.0
+    try:
+        vmin = float(t.min())
+        vmax = float(t.max())
+    except Exception:
+        vmin, vmax = -1.0, 1.0
+    if vmin >= 0.0 and vmax <= 1.1:
+        t = t * 2.0 - 1.0
+    return t

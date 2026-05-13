@@ -287,19 +287,23 @@ def get_videostream_metadata(path: str) -> VideoPixelShape:
     Returns:
         VideoPixelShape with batch=1, frames, height, width, and fps populated from the stream.
     """
-    container = av.open(path)
-    try:
-        video_stream = next(s for s in container.streams if s.type == "video")
-        fps = float(video_stream.average_rate)
-        num_frames = video_stream.frames or 0
-        if num_frames == 0:
-            num_frames = sum(1 for _ in container.decode(video_stream))
-        width = video_stream.codec_context.width
-        height = video_stream.codec_context.height
-        return VideoPixelShape(batch=1, frames=num_frames, height=height, width=width, fps=fps)
-    finally:
-        container.close()
-
+    if isinstance(path, str):  # pathlib.Path
+       
+        container = av.open(path)
+        try:
+            video_stream = next(s for s in container.streams if s.type == "video")
+            fps = float(video_stream.average_rate)
+            num_frames = video_stream.frames or 0
+            if num_frames == 0:
+                num_frames = sum(1 for _ in container.decode(video_stream))
+            width = video_stream.codec_context.width
+            height = video_stream.codec_context.height
+            return VideoPixelShape(batch=1, frames=num_frames, height=height, width=width, fps=fps)
+        finally:
+            container.close()
+    else:
+        frames,height,width,_= path.shape
+        return VideoPixelShape(batch=1, frames=frames, height=height, width=width, fps=24)
 
 def decode_audio_from_file(
     path: str, device: torch.device, start_time: float = 0.0, max_duration: float | None = None

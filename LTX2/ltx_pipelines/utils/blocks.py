@@ -19,7 +19,7 @@ from ...ltx_core.components.diffusion_steps import EulerDiffusionStep
 from ...ltx_core.components.noisers import Noiser
 from ...ltx_core.components.patchifiers import AudioPatchifier, VideoLatentPatchifier
 from ...ltx_core.components.protocols import DiffusionStepProtocol
-from ...ltx_core.layer_streaming import LayerStreamingWrapper
+from ...ltx_core.layer_streaming import LayerStreamingWrapper,SimpleLayerStreamingWrapper
 from ...ltx_core.loader import SDOps
 from ...ltx_core.loader.primitives import LoraPathStrengthAndSDOps
 from ...ltx_core.loader.registry import DummyRegistry, Registry
@@ -84,7 +84,7 @@ _M = TypeVar("_M", bound=torch.nn.Module)
 
 
 @contextmanager
-def _streaming_model(
+def _streaming_model_(
     model: _M,
     layers_attr: str,
     target_device: torch.device,
@@ -113,6 +113,38 @@ def _streaming_model(
                 torch._C._host_emptyCache()
         except Exception:
             logger.warning("Host empty cache cleanup failed; ignoring.", exc_info=True)
+
+@contextmanager
+def _streaming_model(
+    model: _M,  # 模型参数，类型为_M
+    layers_attr: str,  # 属性字符串，用于标识模型的层
+    target_device: torch.device,  # 目标设备，用于指定模型运行的设备
+    prefetch_count: int,  # 预取数量，用于控制预取的层数
+) -> Iterator[_M]:  # 返回类型为迭代器，迭代器元素类型为_M
+    """Wrap *model* with :class:`LayerStreamingWrapper`, yield it, then tear down."""
+    wrapped = SimpleLayerStreamingWrapper(
+        model,
+        layers_attr=layers_attr,
+        target_device=target_device,
+        active_count=prefetch_count,
+    )
+    try:
+        yield wrapped  # type: ignore[misc]
+    finally:
+       
+        wrapped.to("meta")
+        cleanup_memory()
+        # Flush the host (pinned) memory cache so that freed pinned pages are
+        # returned to the OS.  Without this, sequential streaming models
+        # (e.g. text encoder then transformer) exhaust host memory because the
+        # CachingHostAllocator keeps freed blocks cached indefinitely.
+        torch.cuda.synchronize(device=target_device)
+        try:
+            if hasattr(torch._C, "_host_emptyCache"):
+                torch._C._host_emptyCache()
+        except Exception:
+            print("Host empty cache cleanup failed; ignoring.", exc_info=True)
+
 
 
 def _build_state(
@@ -217,19 +249,44 @@ class DiffusionStage:
     def _gguf_transformer(self, **kwargs: object) -> X0Model:
         return X0Model(self._transformer_builder.build(device=self._device, dtype=self._dtype,use_gguf=self.use_gguf)).eval()
 
-    def _transformer_ctx(
+    def _transformer_ctx_normal(
         self,
         streaming_prefetch_count: int | None,
         **kwargs: object,
     ) -> AbstractContextManager:
         if streaming_prefetch_count is not None:
-            return _streaming_model(
+            return _streaming_model_(
                 self._build_transformer(device=torch.device("cpu"), **kwargs),
                 layers_attr="velocity_model.transformer_blocks",
                 target_device=self._device,
                 prefetch_count=streaming_prefetch_count,
             )
         return gpu_model(self._build_transformer(**kwargs))
+    
+    def _transformer_ctx(
+        self,
+        streaming_prefetch_count: int | None,
+        **kwargs: object,
+    ) -> AbstractContextManager:
+        if streaming_prefetch_count is not None:
+            if self.use_gguf:
+                return _streaming_model(
+                    self._gguf_transformer(device=torch.device("cpu"), **kwargs),
+                    layers_attr="velocity_model.transformer_blocks",
+                    target_device=self._device,
+                    prefetch_count=streaming_prefetch_count,
+                )
+            else:
+                return _streaming_model_(
+                    self._build_transformer(device=torch.device("cpu"), **kwargs),
+                    layers_attr="velocity_model.transformer_blocks",
+                    target_device=self._device,
+                    prefetch_count=streaming_prefetch_count,
+                )
+        if self.use_gguf:
+            return gpu_model(self._gguf_transformer(**kwargs))
+        return gpu_model(self._build_transformer(**kwargs))
+    
 
     def __call__(  # noqa: PLR0913
         self,
@@ -278,6 +335,7 @@ class DiffusionStage:
         else:
             infer_device = self._device
             gpu_manager=None
+            self._transformer=None
         if video is None and audio is None:
             raise ValueError("At least one of `video` or `audio` must be provided")
 

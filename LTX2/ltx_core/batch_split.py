@@ -66,6 +66,7 @@ class BatchSplitAdapter(nn.Module):
         video: Modality | None,
         audio: Modality | None,
         perturbations: BatchedPerturbationConfig,
+        **kwargs: Any,
     ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
         batch_size = (video or audio).latent.shape[0]
 

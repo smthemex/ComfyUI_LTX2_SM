@@ -139,6 +139,104 @@ class _AsyncPrefetcher:
         self._store = None
 
 
+class _SimpleLayerStore:
+    """简化版层存储，支持按需加载和立即释放"""
+    
+    def __init__(self, layers: nn.ModuleList, target_device: torch.device) -> None:
+        self.target_device = target_device
+        self.num_layers = len(layers)
+        
+        # 保留CPU端的原始参数引用
+        self._cpu_params: list[dict[str, torch.Tensor]] = []
+        for layer in layers:
+            cpu_copy = {}
+            for name, tensor in itertools.chain(layer.named_parameters(), layer.named_buffers()):
+                cpu_copy[name] = tensor.data.cpu()  # 保留在CPU上
+            self._cpu_params.append(cpu_copy)
+    
+    def load_layer_to_gpu(self, idx: int, layer: nn.Module) -> None:
+        """将指定层加载到GPU"""
+        for name, param in itertools.chain(layer.named_parameters(), layer.named_buffers()):
+            if name in self._cpu_params[idx]:
+                param.data = self._cpu_params[idx][name].to(self.target_device)
+    
+    def unload_layer_from_gpu(self, idx: int, layer: nn.Module) -> None:
+        """将指定层从GPU卸载回CPU"""
+        for name, param in itertools.chain(layer.named_parameters(), layer.named_buffers()):
+            if name in self._cpu_params[idx]:
+                param.data = self._cpu_params[idx][name]  # 恢复为CPU副本
+                
+class SimpleLayerStreamingWrapper(nn.Module):
+    """简化版层流式处理包装器"""
+    
+    def __init__(
+        self,
+        model: nn.Module,
+        layers_attr: str,
+        target_device: torch.device,
+        active_count: int = 1,  # 同时激活的层数量
+    ) -> None:
+        super().__init__()
+        self._model = model
+        self._layers = _resolve_attr(model, layers_attr)
+        self._target_device = target_device
+        self._active_count = active_count
+        self._store = _SimpleLayerStore(self._layers, self._target_device)
+        
+        # 将非层参数移到GPU
+        self._move_non_layer_params_to_gpu()
+        
+        # 注册钩子
+        self._register_simple_hooks()
+    
+    def _move_non_layer_params_to_gpu(self) -> None:
+        """移动非层参数到GPU"""
+        layer_tensor_ids = set()
+        for layer in self._layers:
+            for t in itertools.chain(layer.parameters(), layer.buffers()):
+                layer_tensor_ids.add(id(t))
+
+        for p in self._model.parameters():
+            if id(p) not in layer_tensor_ids:
+                p.data = p.data.to(self._target_device)
+        for b in self._model.buffers():
+            if id(b) not in layer_tensor_ids:
+                b.data = b.data.to(self._target_device)
+    
+    def _register_simple_hooks(self) -> None:
+        """注册简单的加载/释放钩子"""
+        idx_map = {id(layer): idx for idx, layer in enumerate(self._layers)}
+        
+        def _pre_hook(module: nn.Module, input, *, idx: int):
+            # 加载当前层到GPU
+            self._store.load_layer_to_gpu(idx, module)
+            # 记录流，防止内存被提前回收
+            for param in itertools.chain(module.parameters(), module.buffers()):
+                param.data.record_stream(torch.cuda.current_stream(self._target_device))
+        
+        def _post_hook(module: nn.Module, input, output, *, idx: int):
+            # 处理完后立即将层移回CPU
+            self._store.unload_layer_from_gpu(idx, module)
+        
+        for layer in self._layers:
+            idx = idx_map[id(layer)]
+            pre_hook = layer.register_forward_pre_hook(functools.partial(_pre_hook, idx=idx))
+            post_hook = layer.register_forward_hook(functools.partial(_post_hook, idx=idx))
+    
+    def forward(self, *args: Any, **kwargs: Any) -> Any:
+        return self._model(*args, **kwargs)
+    
+    def __getattr__(self, name: str) -> Any:
+        """代理属性访问到原始模型"""
+        try:
+            # 首先尝试从包装器自身获取属性
+            return super().__getattr__(name)
+        except AttributeError:
+            # 如果失败，则从原始模型获取
+            return getattr(self._model, name)
+
+
+
 class LayerStreamingWrapper(nn.Module):
     """Wraps a model to stream its sequential layers between CPU and GPU.
     Each layer is evicted immediately after its forward completes, and
