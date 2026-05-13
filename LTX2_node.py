@@ -13,10 +13,7 @@ from .load_utils import (
     )
 MAX_SEED = np.iinfo(np.int32).max
 node_cr_path = os.path.dirname(os.path.abspath(__file__))
-device = torch.device(
-    "cuda:0") if torch.cuda.is_available() else torch.device(
-    "mps") if torch.backends.mps.is_available() else torch.device(
-    "cpu")
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
 
 weigths_gguf_current_path = os.path.join(folder_paths.models_dir, "gguf")
 if not os.path.exists(weigths_gguf_current_path):
@@ -47,8 +44,8 @@ class LTX2_SM_Model(io.ComfyNode):
     @classmethod
     def execute(cls,dit,gguf,distilled_lora,lora,sampling_mode,offload) -> io.NodeOutput:
         clear_comfyui_cache()
-        device=torch.device("cpu") if offload else device
-        model= load_model(dit, gguf, lora, distilled_lora,sampling_mode,offload,device)
+        current_device = device if not  offload else torch.device("cpu")
+        model= load_model(dit, gguf, lora, distilled_lora,sampling_mode,offload,current_device)
         return io.NodeOutput(model)
 
 class LTX2_SM_VAE(io.ComfyNode):
@@ -155,7 +152,7 @@ class LTX2_LATENTS(io.ComfyNode):
                 io.Vae.Input("a_encoder",optional=True),
                 io.Image.Input("image",optional=True),
                 io.Audio.Input("audio",optional=True),
-                io.Image.Input("ic_lora_video",optional=True),
+                io.Image.Input("ic_lora_video", optional=True),
                 io.Mask.Input("ic_lora_mask",optional=True),
             ],
             outputs=[

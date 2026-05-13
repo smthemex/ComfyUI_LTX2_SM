@@ -534,19 +534,8 @@ def load_mask_video(
     Returns:
         Tensor of shape ``(1, 1, F, H, W)`` with values in ``[0, 1]``.
     """
-    if isinstance(mask_path, str):
-        mask_video = load_video_conditioning(
-            video_path=mask_path,
-            height=height,
-            width=width,
-            frame_cap=num_frames,
-            dtype=torch.bfloat16,
-            device=device,
-        )
-        mask = mask_video.mean(dim=1, keepdim=True)  # (1, 1, F, H, W)
-        # mask_video shape: (1, C, F, H, W) — take mean over channels for grayscale
-    else:
-        mask = mask_path.unsqueeze(0).unsqueeze(0) # FHW-->BFCHW
+
+    mask = mask_path.unsqueeze(0).unsqueeze(0) # FHW-->BFCHW
     
     # Normalise to [0, 1] — load_video_conditioning applies normalize_latent,
     # so undo that: values are in [-1, 1], remap to [0, 1]

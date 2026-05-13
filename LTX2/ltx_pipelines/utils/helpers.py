@@ -80,15 +80,21 @@ def video_latent_from_file(
         Encoded video latents of shape (1, C, T, H, W) with T = required_latent_frames, or
         None (currently this function always returns a tensor).
     """
-    fps = get_videostream_fps(file_path)
-    if fps != output_shape.fps:
-        raise ValueError(f"Input video FPS {fps} does not match output FPS {output_shape.fps}, not supported")
-    max_duration = max_duration or output_shape.frames / fps
-    frame_gen = decode_video_from_file(path=file_path, device=device, start_time=start_time, max_duration=max_duration)
-    frames = video_preprocess(frame_gen, output_shape.height, output_shape.width, dtype, device)
-    latents = video_encoder.tiled_encode(frames, tiling_config or TilingConfig.default())
-    required_latent_frames = VideoLatentShape.from_pixel_shape(output_shape).frames
-    return _conform_latent_length(latents, required_latent_frames)
+    if isinstance(file_path, str):
+    
+        fps = get_videostream_fps(file_path)
+        if fps != output_shape.fps:
+            raise ValueError(f"Input video FPS {fps} does not match output FPS {output_shape.fps}, not supported")
+        max_duration = max_duration or output_shape.frames / fps
+        frame_gen = decode_video_from_file(path=file_path, device=device, start_time=start_time, max_duration=max_duration)
+        frames = video_preprocess(frame_gen, output_shape.height, output_shape.width, dtype, device)
+        latents = video_encoder.tiled_encode(frames, tiling_config or TilingConfig.default())
+        required_latent_frames = VideoLatentShape.from_pixel_shape(output_shape).frames
+        return _conform_latent_length(latents, required_latent_frames)
+    else:
+        latents = video_encoder.tiled_encode(file_path, tiling_config or TilingConfig.default())
+        required_latent_frames = VideoLatentShape.from_pixel_shape(output_shape).frames
+        return _conform_latent_length(latents, required_latent_frames)
 
 
 def audio_latent_from_file(
